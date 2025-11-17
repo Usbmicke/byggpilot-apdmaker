@@ -1,0 +1,5 @@
+{
+  "name": "ByggPilot APD-Maker",
+  "description": "A 100% client-side web application for creating APD plans (Arbetsplatsdispositionsplan). Users can upload a drawing, drag and drop objects, and export the final plan as a PDF or save the project locally. Built with React, Konva, and Tailwind CSS.",
+  "requestFramePermissions": []
+}

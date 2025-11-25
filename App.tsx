@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import LibraryPanel from './components/LibraryPanel';
 import CanvasPanel from './components/CanvasPanel';
@@ -5,30 +6,43 @@ import LegendPanel from './components/LegendPanel';
 import Header from './components/Header';
 import { LibraryItem, APDObject, CustomLegendItem, isCrane, isWalkway, isFence, isSchakt, isConstructionTraffic } from './types/index';
 import { isPointInCircle, isPointInRotatedRect } from './utils/geometry';
+import { useHistory } from './hooks/useHistory';
 
 type DrawingState = {
-    type: 'walkway' | 'fence' | 'construction-traffic';
+    type: 'walkway' | 'fence' | 'construction-traffic' | 'pen';
     points: number[];
     item: LibraryItem;
 } | null;
 
 
 const App: React.FC = () => {
-    const [objects, setObjects] = useState<APDObject[]>([]);
+    const {
+        state: objects,
+        setState: setObjects,
+        snapshot,
+        undo,
+        redo,
+        canUndo,
+        canRedo,
+        resetHistory
+    } = useHistory<APDObject[]>([]);
+
     const [customLegendItems, setCustomLegendItems] = useState<CustomLegendItem[]>([]);
     const [background, setBackground] = useState<{ url: string, width: number, height: number } | null>(null);
     const [selectedId, setSelectedId] = useState<string | null>(null);
-    const [drawingState, setDrawingState] = useState<DrawingState>(null);
-    const [isLibraryOpen, setIsLibraryOpen] = useState(false);
-    const [isLegendOpen, setIsLegendOpen] = useState(false); // Start with legend closed
     
-    const stageRef = useRef<any>(null); // Konva.Stage
+    // drawingState används för linjer (staket etc), pendingItem för ikoner (klicka-och-placera)
+    const [drawingState, setDrawingState] = useState<DrawingState>(null);
+    const [pendingItem, setPendingItem] = useState<LibraryItem | null>(null);
+
+    const [isLibraryOpen, setIsLibraryOpen] = useState(false);
+    const [isLegendOpen, setIsLegendOpen] = useState(false); 
+    
+    const stageRef = useRef<any>(null); 
     const mainContainerRef = useRef<HTMLDivElement>(null);
 
     const checkDeselect = (e: any) => {
-        // Avmarkera inte om vi är i ritläge
-        if (drawingState) return;
-
+        if (drawingState || pendingItem) return;
         const clickedOnEmpty = e.target === e.target.getStage();
         if (clickedOnEmpty) {
             setSelectedId(null);
@@ -36,6 +50,7 @@ const App: React.FC = () => {
     };
 
     const addObject = useCallback((item: LibraryItem, position: { x: number; y: number }, extraProps: Partial<APDObject> = {}) => {
+        snapshot();
         const newObject = {
             id: `${item.type}-${Date.now()}`,
             x: position.x,
@@ -48,48 +63,84 @@ const App: React.FC = () => {
             ...item.initialProps,
             ...extraProps
         } as APDObject;
-        setObjects(prev => [...prev, newObject]);
-        setDrawingState(null); // Avsluta ritläget efter att ha lagt till
-    }, []);
+        setObjects([...objects, newObject]);
+        setDrawingState(null);
+        setPendingItem(null);
+    }, [objects, snapshot, setObjects]);
     
     const updateObject = useCallback((id: string, attrs: Partial<APDObject>) => {
         setObjects(prev => prev.map(obj => (obj.id === id ? { ...obj, ...attrs } : obj)));
-    }, []);
+    }, [setObjects]);
 
     const removeObject = useCallback((id: string) => {
+        snapshot();
         setObjects(prev => prev.filter(obj => obj.id !== id));
         setSelectedId(null);
-    }, []);
+    }, [snapshot, setObjects]);
 
     const clearProject = useCallback(() => {
+      snapshot();
       setObjects([]);
       setCustomLegendItems([]);
       setBackground(null);
       setSelectedId(null);
       setDrawingState(null);
-    }, []);
+      setPendingItem(null);
+    }, [snapshot, setObjects]);
 
-    const startDrawing = useCallback((item: LibraryItem) => {
-        if (item.type === 'walkway' || item.type === 'fence' || item.type === 'construction-traffic') {
+    const loadProjectObjects = useCallback((newObjects: APDObject[]) => {
+        resetHistory(newObjects);
+    }, [resetHistory]);
+
+    // Anropas när man klickar på ett objekt i biblioteket
+    const handleLibraryItemSelect = useCallback((item: LibraryItem) => {
+        if (item.type === 'walkway' || item.type === 'fence' || item.type === 'construction-traffic' || item.type === 'pen') {
             setSelectedId(null);
-            setDrawingState({ type: item.type as 'walkway' | 'fence' | 'construction-traffic', points: [], item: item });
-            setIsLibraryOpen(false); // Stäng biblioteket på mobilen när ritning påbörjas
+            setPendingItem(null);
+            setDrawingState({ type: item.type as any, points: [], item: item });
+        } else {
+            // För vanliga ikoner, sätt i "pending"-läge för placering
+            setSelectedId(null);
+            setDrawingState(null);
+            setPendingItem(item);
+        }
+        
+        // Stäng biblioteket på mobil för att se kartan
+        if (window.innerWidth < 768) {
+            setIsLibraryOpen(false);
         }
     }, []);
 
-    const cancelDrawing = useCallback(() => {
+    const cancelActions = useCallback(() => {
         setDrawingState(null);
+        setPendingItem(null);
     }, []);
 
+
+    // Tangentbordsgenvägar
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+                e.preventDefault();
+                if (e.shiftKey) {
+                    if(canRedo) redo();
+                } else {
+                    if(canUndo) undo();
+                }
+            }
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+                e.preventDefault();
+                if(canRedo) redo();
+            }
+
             if (e.key === 'Escape') {
-                if (drawingState) {
-                    cancelDrawing();
+                if (drawingState || pendingItem) {
+                    cancelActions();
                 } else if (selectedId) {
                     setSelectedId(null);
                 }
             }
+            
             if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
                 const activeEl = document.activeElement;
                 if (activeEl && (['INPUT', 'TEXTAREA'].includes(activeEl.tagName))) {
@@ -101,8 +152,9 @@ const App: React.FC = () => {
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [selectedId, drawingState, cancelDrawing, removeObject]);
+    }, [selectedId, drawingState, pendingItem, cancelActions, removeObject, undo, redo, canUndo, canRedo]);
 
+    // Riskzon-logik
     useEffect(() => {
         const cranes = objects.filter(isCrane);
         const schakts = objects.filter(isSchakt);
@@ -110,7 +162,6 @@ const App: React.FC = () => {
         const hasRiskZones = cranes.length > 0 || schakts.length > 0;
         
         if (!hasRiskZones) {
-             // Om inga riskzoner, se till att alla linjer inte är markerade som i riskzon
             const needsUpdate = objects.some(obj => (isWalkway(obj) || isFence(obj) || isConstructionTraffic(obj)) && obj.isInRiskZone);
             if (needsUpdate) {
                 setObjects(prev => prev.map(obj => {
@@ -126,12 +177,8 @@ const App: React.FC = () => {
         const updatedObjects = objects.map(obj => {
             if (isWalkway(obj) || isFence(obj) || isConstructionTraffic(obj)) {
                 let isInRiskZone = false;
-                // En linjes punkter är relativa till dess (x,y), vilket är 0,0 för linjer.
-                // Så vi behöver inte addera obj.x/y.
                 for (let i = 0; i < obj.points.length; i += 2) {
                     const point = { x: obj.points[i], y: obj.points[i+1] };
-                    
-                    // Kontrollera mot kranar
                     for (const crane of cranes) {
                         if (isPointInCircle(point, { x: crane.x, y: crane.y }, crane.radius)) {
                             isInRiskZone = true;
@@ -139,8 +186,6 @@ const App: React.FC = () => {
                         }
                     }
                     if (isInRiskZone) break;
-
-                    // Kontrollera mot schakter
                     for (const schakt of schakts) {
                         if (isPointInRotatedRect(point, schakt)) {
                             isInRiskZone = true;
@@ -149,7 +194,6 @@ const App: React.FC = () => {
                     }
                     if (isInRiskZone) break;
                 }
-                 // Uppdatera endast om statusen är annorlunda för att undvika oändliga loopar
                 if (obj.isInRiskZone !== isInRiskZone) {
                     return { ...obj, isInRiskZone };
                 }
@@ -157,11 +201,10 @@ const App: React.FC = () => {
             return obj;
         });
 
-        // Sätt state endast om det finns faktiska ändringar
         if (JSON.stringify(objects) !== JSON.stringify(updatedObjects)) {
             setObjects(updatedObjects);
         }
-    }, [objects]);
+    }, [objects, setObjects]);
 
 
     return (
@@ -172,16 +215,20 @@ const App: React.FC = () => {
                 background={background}
                 setBackground={setBackground}
                 objects={objects}
-                setObjects={setObjects}
+                setObjects={loadProjectObjects}
                 customLegendItems={customLegendItems}
                 setCustomLegendItems={setCustomLegendItems}
                 clearProject={clearProject}
                 toggleLibrary={() => setIsLibraryOpen(!isLibraryOpen)}
                 toggleLegend={() => setIsLegendOpen(!isLegendOpen)}
+                undo={undo}
+                redo={redo}
+                canUndo={canUndo}
+                canRedo={canRedo}
             />
             <div className="flex flex-1 overflow-hidden" ref={mainContainerRef}>
                 <LibraryPanel 
-                    startDrawing={startDrawing}
+                    onItemSelect={handleLibraryItemSelect}
                     isOpen={isLibraryOpen}
                     onClose={() => setIsLibraryOpen(false)}
                 />
@@ -198,6 +245,13 @@ const App: React.FC = () => {
                     removeObject={removeObject}
                     drawingState={drawingState}
                     setDrawingState={setDrawingState}
+                    pendingItem={pendingItem}
+                    setPendingItem={setPendingItem}
+                    onSnapshot={snapshot}
+                    undo={undo}
+                    redo={redo}
+                    canUndo={canUndo}
+                    canRedo={canRedo}
                 />
                 <LegendPanel
                     objects={objects}
@@ -207,12 +261,21 @@ const App: React.FC = () => {
                     onClose={() => setIsLegendOpen(false)}
                 />
             </div>
-             {drawingState && (
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-slate-700 text-white py-2 px-4 rounded-full shadow-lg text-sm z-10 flex items-center space-x-2">
-                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 animate-pulse" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                    </svg>
-                    <span>Ritläge: Klicka för att rita. Högerklicka för att slutföra. [ESC] för att avbryta.</span>
+            
+            {/* Instruktions-overlay */}
+             {(drawingState || pendingItem) && (
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-slate-700 text-white py-3 px-6 rounded-full shadow-lg text-sm z-20 flex items-center space-x-3 whitespace-nowrap border border-slate-500 animate-fade-in-up">
+                     <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    <span>
+                        {pendingItem ? (
+                            <>Klicka på kartan för att placera <b>{pendingItem.name}</b></>
+                        ) : (
+                            drawingState?.type === 'pen' 
+                            ? <>Ritläge: <b>Håll nere och rita</b></>
+                            : <>Klicka: <b>Lägg punkt</b>. Avsluta: <b>Högerklick / Enter</b></>
+                        )}
+                        <span className="ml-3 text-slate-400 border-l border-slate-500 pl-3">ESC för att avbryta</span>
+                    </span>
                 </div>
             )}
         </div>

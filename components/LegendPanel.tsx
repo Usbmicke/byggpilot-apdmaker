@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState } from 'react';
 import { APDObject, CustomLegendItem } from '../types/index';
 import { LIBRARY_CATEGORIES } from '../constants/libraryItems';
@@ -58,12 +59,12 @@ const LegendPanel: React.FC<LegendPanelProps> = ({ objects, customItems, setCust
                 id="legend-panel" 
                 className={`
                     bg-slate-900 text-slate-300
-                    transition-all duration-300 ease-in-out
+                    transition-[width,transform] duration-300 ease-in-out
                     fixed top-0 right-0 h-full z-30 shadow-2xl
                     md:static md:h-auto md:shadow-none md:border-slate-700
                     overflow-hidden flex-shrink-0
                     ${isOpen 
-                        ? 'translate-x-0 w-80 max-w-full md:border-l' 
+                        ? 'translate-x-0 w-80 md:w-80 md:border-l border-slate-700' 
                         : 'translate-x-full md:translate-x-0 md:w-0 md:border-l-0'
                     }
                 `}
@@ -75,7 +76,7 @@ const LegendPanel: React.FC<LegendPanelProps> = ({ objects, customItems, setCust
                              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                     </div>
-                    <h2 className="hidden md:block text-xl font-bold border-b border-slate-700 pb-2 mb-4 text-slate-100">Förteckning / Legend</h2>
+                    <h2 className="hidden md:block text-xl font-bold border-b border-slate-700 pb-2 mb-4 text-slate-100 whitespace-nowrap">Förteckning / Legend</h2>
                     
                     <div className="space-y-2 mb-6">
                         {legendData.map(({ label, count, icon }) => (
@@ -84,7 +85,7 @@ const LegendPanel: React.FC<LegendPanelProps> = ({ objects, customItems, setCust
                                     <div className="w-6 h-6 mr-3 text-slate-400 flex-shrink-0">{icon}</div>
                                     <span className="text-sm font-medium text-slate-300 truncate" title={label}>{label}</span>
                                 </div>
-                                <span className="text-sm font-semibold text-slate-200 ml-2">{count} st</span>
+                                <span className="text-sm font-semibold text-slate-200 ml-2 whitespace-nowrap">{count} st</span>
                             </div>
                         ))}
                     </div>
@@ -99,7 +100,7 @@ const LegendPanel: React.FC<LegendPanelProps> = ({ objects, customItems, setCust
                                    <span className="text-sm font-medium text-slate-300 truncate" title={item.name}>{item.name}</span>
                                 </div>
                                 <div className="flex items-center">
-                                    <span className="text-sm font-semibold text-slate-200 ml-2">{item.count} st</span>
+                                    <span className="text-sm font-semibold text-slate-200 ml-2 whitespace-nowrap">{item.count} st</span>
                                     <button onClick={() => handleRemoveCustomItem(item.id)} className="ml-2 text-red-500 hover:text-red-700 font-bold" aria-label="Ta bort anpassat objekt">&times;</button>
                                 </div>
                             </div>
@@ -107,7 +108,7 @@ const LegendPanel: React.FC<LegendPanelProps> = ({ objects, customItems, setCust
                     </div>
 
                     <div className="mt-6 border-t border-slate-700 pt-4">
-                         <h3 className="text-md font-semibold mb-3 text-slate-100">Lägg till egen rad</h3>
+                         <h3 className="text-md font-semibold mb-3 text-slate-100 whitespace-nowrap">Lägg till egen rad</h3>
                          <div className="flex flex-col space-y-2">
                             <input 
                                 type="text" 

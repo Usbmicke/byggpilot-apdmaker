@@ -2,7 +2,12 @@ import React, { useState } from 'react';
 import { LIBRARY_CATEGORIES } from '../constants/libraryItems';
 import { LibraryItem, isLineTool } from '../types/index';
 
-const LibraryItemComponent: React.FC<{ item: LibraryItem; startDrawing: (item: LibraryItem) => void; }> = ({ item, startDrawing }) => {
+interface LibraryItemProps {
+    item: LibraryItem;
+    onSelect: (item: LibraryItem) => void;
+}
+
+const LibraryItemComponent: React.FC<LibraryItemProps> = ({ item, onSelect }) => {
     
     const isDrawable = isLineTool(item);
 
@@ -16,9 +21,7 @@ const LibraryItemComponent: React.FC<{ item: LibraryItem; startDrawing: (item: L
     };
 
     const handleClick = () => {
-        if (isDrawable) {
-            startDrawing(item);
-        }
+        onSelect(item);
     }
 
     return (
@@ -26,16 +29,18 @@ const LibraryItemComponent: React.FC<{ item: LibraryItem; startDrawing: (item: L
             draggable={!isDrawable}
             onDragStart={handleDragStart}
             onClick={handleClick}
-            className={`flex items-center p-2.5 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700 hover:border-slate-500 shadow-sm ${isDrawable ? 'cursor-pointer' : 'cursor-grab'}`}
-            title={isDrawable ? `Klicka för att börja rita ${item.name.toLowerCase()}` : `Dra ut ${item.name.toLowerCase()}`}
+            className="flex items-center p-3 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700 hover:border-slate-500 shadow-sm cursor-pointer active:bg-slate-600"
+            title={`Klicka för att välja ${item.name}`}
         >
-            <div className="w-8 h-8 mr-3 flex items-center justify-center text-slate-400 bg-slate-700 rounded-md flex-shrink-0">{item.icon}</div>
-            <span className="text-sm font-medium text-slate-300">{item.name}</span>
+            <div className="w-8 h-8 mr-3 flex items-center justify-center text-slate-400 bg-slate-700 rounded-md flex-shrink-0 pointer-events-none select-none">
+                {item.icon}
+            </div>
+            <span className="text-sm font-medium text-slate-300 pointer-events-none select-none">{item.name}</span>
         </div>
     );
 };
 
-const Category: React.FC<{ name: string; items: LibraryItem[]; startDrawing: (item: LibraryItem) => void; }> = ({ name, items, startDrawing }) => {
+const Category: React.FC<{ name: string; items: LibraryItem[]; onSelect: (item: LibraryItem) => void }> = ({ name, items, onSelect }) => {
     const [isOpen, setIsOpen] = useState(true);
 
     return (
@@ -49,7 +54,13 @@ const Category: React.FC<{ name: string; items: LibraryItem[]; startDrawing: (it
             </button>
             {isOpen && (
                 <div className="pt-2 space-y-2">
-                    {items.map(item => <LibraryItemComponent key={item.type} item={item} startDrawing={startDrawing} />)}
+                    {items.map(item => (
+                        <LibraryItemComponent 
+                            key={item.type} 
+                            item={item} 
+                            onSelect={onSelect}
+                        />
+                    ))}
                 </div>
             )}
         </div>
@@ -57,27 +68,28 @@ const Category: React.FC<{ name: string; items: LibraryItem[]; startDrawing: (it
 };
 
 interface LibraryPanelProps {
-    startDrawing: (item: LibraryItem) => void;
+    onItemSelect: (item: LibraryItem) => void;
     isOpen: boolean;
     onClose: () => void;
 }
 
-const LibraryPanel: React.FC<LibraryPanelProps> = ({ startDrawing, isOpen, onClose }) => {
+const LibraryPanel: React.FC<LibraryPanelProps> = ({ onItemSelect, isOpen, onClose }) => {
     return (
         <>
-            {/* Bakgrund för mobil */}
+            {/* Bakgrund för mobil när menyn är öppen */}
             <div
                 className={`md:hidden fixed inset-0 bg-black bg-opacity-50 z-20 transition-opacity ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                 onClick={onClose}
                 aria-hidden="true"
             />
+            
             <aside 
-                className={`w-80 max-w-full bg-slate-900 text-slate-300 p-3 overflow-y-auto flex-shrink-0 transition-transform duration-300 ease-in-out border-r border-slate-700
+                className={`w-80 max-w-full bg-slate-900 text-slate-300 p-4 overflow-y-auto flex-shrink-0 transition-transform duration-300 ease-in-out border-r border-slate-700
                             fixed top-0 left-0 h-full z-30 shadow-2xl
                             md:static md:h-auto md:w-64 md:translate-x-0 md:shadow-none
                             ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
             >
-                <div className="flex justify-between items-center mb-2 md:hidden border-b border-slate-700 pb-2">
+                <div className="flex justify-between items-center mb-4 md:hidden border-b border-slate-700 pb-2">
                     <h2 className="font-bold text-lg text-slate-200">Bibliotek</h2>
                     <button onClick={onClose} className="p-1 rounded-md hover:bg-slate-700" aria-label="Stäng bibliotek">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -85,8 +97,15 @@ const LibraryPanel: React.FC<LibraryPanelProps> = ({ startDrawing, isOpen, onClo
                 </div>
                  <h2 className="hidden md:block text-xl font-bold text-slate-100 mb-4">Bibliotek</h2>
                 {LIBRARY_CATEGORIES.map(category => (
-                    <Category key={category.name} name={category.name} items={category.items} startDrawing={startDrawing} />
+                    <Category 
+                        key={category.name} 
+                        name={category.name} 
+                        items={category.items} 
+                        onSelect={onItemSelect} 
+                    />
                 ))}
+                {/* Utfyllnad i botten för att säkerställa scrollning */}
+                <div className="h-20 md:hidden"></div>
             </aside>
         </>
     );

@@ -57,22 +57,18 @@ const GasSVG = `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><pat
 const UtrymningspilSVG = `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><rect width="60" height="60" x="2" y="2" fill="#00C853" rx="2" stroke="#fff" stroke-width="2"/><path d="M10 32 H50 M35 18 L50 32 L35 46" stroke="#fff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`;
 const VarningSVG = `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><path d="M32 4 L4 58 H60 Z" fill="#FFEA00" stroke="#000" stroke-width="4" stroke-linejoin="round"/><path d="M32 20 V40 M32 48 V50" stroke="#000" stroke-width="6" stroke-linecap="round"/></svg>`;
 const ForbudSVG = `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><circle cx="32" cy="32" r="28" fill="#fff" stroke="#D50000" stroke-width="8"/><path d="M14 14 L50 50" stroke="#D50000" stroke-width="8"/></svg>`;
-// UPDATED: Personlig Skyddsutrustning (PPE) - Full Gear (Helmet, Vest, Boots)
+// UPDATED: Personlig Skyddsutrustning (PPE) - Simple Helmet
 const PabudSVG = `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
   <circle cx="32" cy="32" r="28" fill="#2962FF" stroke="#fff" stroke-width="2"/>
-  <path d="M32 10 C27 10 24 13 24 16 V18 H40 V16 C40 13 37 10 32 10 Z" fill="#fff"/> 
-  <rect x="24" y="18" width="16" height="3" fill="#fff"/>
-  <path d="M20 24 L20 44 L28 44 L28 54 L36 54 L36 44 L44 44 L44 24 Z" fill="#fff"/>
-  <rect x="22" y="28" width="20" height="4" fill="#2962FF"/>
-  <rect x="22" y="36" width="20" height="4" fill="#2962FF"/>
-  <rect x="18" y="52" width="12" height="6" fill="#fff" rx="2"/>
-  <rect x="34" y="52" width="12" height="6" fill="#fff" rx="2"/>
+  <path d="M12 36 C 12 18, 52 18, 52 36 L 52 40 L 12 40 Z" fill="#fff"/>
+  <path d="M8 40 L 56 40 L 56 46 C 56 48, 8 48, 8 46 Z" fill="#fff"/>
+  <rect x="30" y="16" width="4" height="12" fill="#E3F2FD"/>
 </svg>`;
 const ParkeringForbjudenSVG = `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><circle cx="32" cy="32" r="28" fill="#2962FF" stroke="#D50000" stroke-width="6"/><path d="M14 50 L50 14" stroke="#D50000" stroke-width="6"/></svg>`;
 
 
 // Ritverktyg Icons (High visibility)
-const StaketSVG = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#D500F9" stroke-width="3" stroke-linecap="round"><path d="M2 12h4m4 0h4m4 0h4m4 0h4m4 0h4m4 0h4m4 0h4m4 0h4m4 0h4"/></svg>`;
+const StaketSVG = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#D500F9" stroke-width="3" stroke-linecap="round"><path d="M2 12h4m4 0h4m4 0h4m4 0h4m4 0h4m4 0h4m4 0h4m4 0h4m4 0h4m4 0h4"/></svg>`;
 const GangvagSVG = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#00E5FF" stroke-width="3" stroke-linecap="round"><path d="M2 12h2M6 12h2M10 12h2M14 12h2M18 12h2"/></svg>`;
 const ByggtrafikSVG = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#FFD600" stroke-width="4" stroke-linecap="round"><path d="M2 12h20"/></svg>`;
 const SchaktSVG = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="rgba(255, 23, 68, 0.2)" stroke="#FF1744" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>`;

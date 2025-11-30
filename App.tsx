@@ -1,9 +1,11 @@
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, Suspense } from 'react';
 import LibraryPanel from './components/LibraryPanel';
 import CanvasPanel from './components/CanvasPanel';
 import LegendPanel from './components/LegendPanel';
 import Header from './components/Header';
+// Lazy load 3D view to prevent app crash if libraries fail to load immediately
+const ThreeDView = React.lazy(() => import('./components/ThreeDView'));
 import { LibraryItem, APDObject, CustomLegendItem, isCrane, isWalkway, isFence, isSchakt, isConstructionTraffic } from './types/index';
 import { isPointInCircle, isPointInRotatedRect } from './utils/geometry';
 import { useHistory } from './hooks/useHistory';
@@ -37,6 +39,7 @@ const App: React.FC = () => {
 
     const [isLibraryOpen, setIsLibraryOpen] = useState(false);
     const [isLegendOpen, setIsLegendOpen] = useState(false); 
+    const [show3D, setShow3D] = useState(false);
     
     const stageRef = useRef<any>(null); 
     const mainContainerRef = useRef<HTMLDivElement>(null);
@@ -221,49 +224,79 @@ const App: React.FC = () => {
                 clearProject={clearProject}
                 toggleLibrary={() => setIsLibraryOpen(!isLibraryOpen)}
                 toggleLegend={() => setIsLegendOpen(!isLegendOpen)}
-                undo={undo}
-                redo={redo}
-                canUndo={canUndo}
-                canRedo={canRedo}
+                show3D={show3D}
+                setShow3D={setShow3D}
             />
             <div className="flex flex-1 overflow-hidden" ref={mainContainerRef}>
-                <LibraryPanel 
-                    onItemSelect={handleLibraryItemSelect}
-                    isOpen={isLibraryOpen}
-                    onClose={() => setIsLibraryOpen(false)}
-                />
-                <CanvasPanel
-                    stageRef={stageRef}
-                    objects={objects}
-                    background={background}
-                    setBackground={setBackground}
-                    selectedId={selectedId}
-                    setSelectedId={setSelectedId}
-                    checkDeselect={checkDeselect}
-                    addObject={addObject}
-                    updateObject={updateObject}
-                    removeObject={removeObject}
-                    drawingState={drawingState}
-                    setDrawingState={setDrawingState}
-                    pendingItem={pendingItem}
-                    setPendingItem={setPendingItem}
-                    onSnapshot={snapshot}
-                    undo={undo}
-                    redo={redo}
-                    canUndo={canUndo}
-                    canRedo={canRedo}
-                />
-                <LegendPanel
-                    objects={objects}
-                    customItems={customLegendItems}
-                    setCustomItems={setCustomLegendItems}
-                    isOpen={isLegendOpen}
-                    onClose={() => setIsLegendOpen(false)}
-                />
+                {show3D ? (
+                    <Suspense fallback={
+                        <div className="flex items-center justify-center w-full h-full bg-slate-900 overflow-hidden flex-col z-50">
+                             <div className="construction-loader">
+                                 <div className="relative">
+                                    <svg className="helmet-icon" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M8 38 C 8 20, 56 20, 56 38 L 56 42 L 8 42 Z" fill="#FFC107" stroke="#fff" strokeWidth="2"/>
+                                        <path d="M4 42 L 60 42 L 60 48 C 60 50, 4 50, 4 48 Z" fill="#FFC107" stroke="#fff" strokeWidth="2"/>
+                                        <rect x="28" y="18" width="8" height="12" fill="#FFE082"/>
+                                    </svg>
+                                    <svg className="hammer-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M14.5 5.5L18.5 9.5" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round"/>
+                                        <path d="M12 8L16 12L7 21L3 17L12 8Z" fill="#a16207" stroke="#fff" strokeWidth="1"/>
+                                        <path d="M16 3L21 8" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
+                                        <path d="M13 6L18 11" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
+                                    </svg>
+                                 </div>
+                                 <div className="loader-text-main">BYGGPILOT</div>
+                                 <div className="loader-text-sub">Startar 3D-vy</div>
+                            </div>
+                        </div>
+                    }>
+                         <ThreeDView 
+                            objects={objects} 
+                            background={background}
+                            updateObject={updateObject}
+                         />
+                    </Suspense>
+                ) : (
+                    <>
+                        <LibraryPanel 
+                            onItemSelect={handleLibraryItemSelect}
+                            isOpen={isLibraryOpen}
+                            onClose={() => setIsLibraryOpen(false)}
+                        />
+                        <CanvasPanel
+                            stageRef={stageRef}
+                            objects={objects}
+                            background={background}
+                            setBackground={setBackground}
+                            selectedId={selectedId}
+                            setSelectedId={setSelectedId}
+                            checkDeselect={checkDeselect}
+                            addObject={addObject}
+                            updateObject={updateObject}
+                            removeObject={removeObject}
+                            drawingState={drawingState}
+                            setDrawingState={setDrawingState}
+                            pendingItem={pendingItem}
+                            setPendingItem={setPendingItem}
+                            onSnapshot={snapshot}
+                            undo={undo}
+                            redo={redo}
+                            canUndo={canUndo}
+                            canRedo={canRedo}
+                        />
+                        <LegendPanel
+                            objects={objects}
+                            customItems={customLegendItems}
+                            setCustomItems={setCustomLegendItems}
+                            isOpen={isLegendOpen}
+                            onClose={() => setIsLegendOpen(false)}
+                        />
+                    </>
+                )}
             </div>
             
-            {/* Instruktions-overlay */}
-             {(drawingState || pendingItem) && (
+            {/* Instruktions-overlay (Endast i 2D) */}
+             {!show3D && (drawingState || pendingItem) && (
                 <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-slate-700 text-white py-3 px-6 rounded-full shadow-lg text-sm z-20 flex items-center space-x-3 whitespace-nowrap border border-slate-500 animate-fade-in-up">
                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                     <span>

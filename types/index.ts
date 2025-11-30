@@ -50,6 +50,9 @@ export interface SchaktAPDObject extends BaseAPDObject {
     fill: string;
     stroke: string;
     strokeWidth: number;
+    // 3D Properties
+    height3d?: number;
+    color3d?: string;
 }
 
 

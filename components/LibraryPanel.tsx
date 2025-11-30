@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { LIBRARY_CATEGORIES } from '../constants/libraryItems';
 import { LibraryItem, isLineTool } from '../types/index';
@@ -9,13 +10,8 @@ interface LibraryItemProps {
 
 const LibraryItemComponent: React.FC<LibraryItemProps> = ({ item, onSelect }) => {
     
-    const isDrawable = isLineTool(item);
-
+    // Allow dragging for ALL items (removed isDrawable check)
     const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
-        if(isDrawable) {
-            e.preventDefault();
-            return;
-        }
         e.dataTransfer.setData('application/json', JSON.stringify(item));
         e.dataTransfer.effectAllowed = 'copy';
     };
@@ -26,7 +22,7 @@ const LibraryItemComponent: React.FC<LibraryItemProps> = ({ item, onSelect }) =>
 
     return (
         <div
-            draggable={!isDrawable}
+            draggable={true}
             onDragStart={handleDragStart}
             onClick={handleClick}
             className="flex items-center p-3 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700 hover:border-slate-500 shadow-sm cursor-pointer active:bg-slate-600"

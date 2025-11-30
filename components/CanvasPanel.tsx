@@ -2,7 +2,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Stage, Layer, Image as KonvaImage, Text, Transformer, Circle, Line, Rect, Group as KonvaGroup } from 'react-konva';
 import useImage from 'use-image';
-import { APDObject, LibraryItem, isCrane, isText, isWalkway, isFence, isSchakt, isConstructionTraffic, isPen, TextAPDObject } from '../types/index';
+import { APDObject, LibraryItem, isCrane, isText, isWalkway, isFence, isSchakt, isConstructionTraffic, isPen, TextAPDObject, isLineTool } from '../types/index';
 
 type DrawingState = {
     type: 'walkway' | 'fence' | 'construction-traffic' | 'pen';
@@ -97,8 +97,12 @@ const DraggableObject: React.FC<{
                     text={obj.text}
                     fontSize={obj.fontSize}
                     fill={obj.fill}
-                    stroke="white" // Add stroke for better visibility on maps
+                    stroke="white"
                     strokeWidth={0.5}
+                    shadowColor="black"
+                    shadowBlur={1}
+                    shadowOpacity={0.3}
+                    shadowOffset={{x:1, y:1}}
                     onDblClick={(e) => onTextDblClick(obj, e.target)}
                     onDblTap={(e) => onTextDblClick(obj, e.target)}
                     {...commonProps}
@@ -157,7 +161,6 @@ const DraggableObject: React.FC<{
                         radius={10} fill="#ef4444" draggable 
                         onDragStart={() => onInteractionStart()}
                         onDragMove={(e) => {
-                             // Calculate radius based on distance from center
                              const node = e.target;
                              const dx = node.x() - obj.x;
                              const dy = node.y() - obj.y;
@@ -174,8 +177,8 @@ const DraggableObject: React.FC<{
                     ref={shapeRef}
                     width={obj.width}
                     height={obj.height}
-                    fill="rgba(239, 68, 68, 0.2)"
-                    stroke="#ef4444"
+                    fill={obj.fill}
+                    stroke={obj.stroke}
                     strokeWidth={2}
                     dash={[10, 5]}
                     offsetX={obj.width / 2}
@@ -205,6 +208,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ stageRef, objects, background
     const [bgImage] = useImage(background?.url || '');
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, id: string } | null>(null);
     const [tempLinePoints, setTempLinePoints] = useState<number[]>([]);
+    const [cursorPosition, setCursorPosition] = useState<{x: number, y: number} | null>(null);
     const [size, setSize] = useState<{ width: number; height: number; }>({ width: 0, height: 0 });
     const lastDist = useRef<number>(0);
     const isDrawingRef = useRef(false);
@@ -242,6 +246,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ stageRef, objects, background
     useEffect(() => {
         if (!drawingState) {
             setTempLinePoints([]);
+            setCursorPosition(null);
             isDrawingRef.current = false;
         }
     }, [drawingState]);
@@ -250,7 +255,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ stageRef, objects, background
         if (drawingState && drawingState.points.length >= 4) {
              addObject(drawingState.item, { x: 0, y: 0 }, { points: drawingState.points });
         }
-        // För Pen-tool hanteras detta i MouseUp
         if (drawingState?.type !== 'pen') {
             setDrawingState(null);
             setTempLinePoints([]);
@@ -261,7 +265,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ stageRef, objects, background
         e.evt.preventDefault();
         if (drawingState) {
             finishDrawing();
-            setDrawingState(null); 
             return; 
         }
         setContextMenu(null); 
@@ -281,7 +284,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ stageRef, objects, background
         const handleGlobalKeys = (e: KeyboardEvent) => {
             if (e.key === 'Enter' && drawingState) {
                 finishDrawing();
-                if(drawingState.type !== 'pen') setDrawingState(null);
             }
         };
         window.addEventListener('keydown', handleGlobalKeys);
@@ -298,7 +300,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ stageRef, objects, background
         setContextMenu(null);
     };
 
-    // Funktion för att hantera "nyp"-zoom på touch-enheter
     const getDistance = (p1: any, p2: any) => {
         return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
     };
@@ -315,9 +316,9 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ stageRef, objects, background
         const touch1 = e.evt.touches[0];
         const touch2 = e.evt.touches[1];
 
-        // Om vi ritar, hantera det som musrörelse
         if (drawingState && touch1 && !touch2) {
              const pos = getRelativePointerPosition(stage);
+             setCursorPosition(pos);
              
              if (drawingState.type === 'pen') {
                  if (isDrawingRef.current) {
@@ -329,9 +330,8 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ stageRef, objects, background
             return;
         }
 
-        // Hantera nyp-zoom om två fingrar används
         if (touch1 && touch2) {
-            e.evt.preventDefault(); // Förhindra webbläsarens zoom
+            e.evt.preventDefault();
             
             const p1 = { x: touch1.clientX, y: touch1.clientY };
             const p2 = { x: touch2.clientX, y: touch2.clientY };
@@ -346,12 +346,9 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ stageRef, objects, background
             const oldScale = stage.scaleX();
             const newScale = oldScale * distScale;
 
-            // Begränsa zoom
             if (newScale > 5 || newScale < 0.05) return;
 
             const center = getCenter(p1, p2);
-            
-            // Hitta centerns position i scencoordinater
             const stageBox = stage.container().getBoundingClientRect();
             const pointerPosition = {
                 x: center.x - stageBox.left,
@@ -380,7 +377,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ stageRef, objects, background
         lastDist.current = 0;
         if (drawingState?.type === 'pen' && isDrawingRef.current) {
             isDrawingRef.current = false;
-            // Finish pen stroke
             if (tempLinePoints.length > 0) {
                 addObject(drawingState.item, { x: 0, y: 0 }, { points: tempLinePoints });
                 setTempLinePoints([]);
@@ -394,7 +390,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ stageRef, objects, background
             setContextMenu(null);
         }
         
-        // Hantera placering av "Pending Item" (Klicka-och-placera)
         if (pendingItem) {
             const stage = e.target.getStage();
             const pos = getRelativePointerPosition(stage);
@@ -407,20 +402,25 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ stageRef, objects, background
             return;
         }
 
-        // För Penna använder vi MouseDown/Up istället för click
         if (drawingState.type === 'pen') return;
 
-        // Om vi ritar Polygon/Linje:
         const stage = e.target.getStage();
         const pos = getRelativePointerPosition(stage);
-        setDrawingState(s => s ? ({...s, points: [...s.points, pos.x, pos.y] }) : null);
+        
+        // Add point to drawing state
+        setDrawingState(s => {
+            if (!s) return null;
+            return { ...s, points: [...s.points, pos.x, pos.y] };
+        });
+        
+        // Update temporary line immediately
+        setTempLinePoints(prev => [...(drawingState.points), pos.x, pos.y, pos.x, pos.y]); // Add extra to connect to cursor
     };
     
     const handleStageMouseDown = (e: any) => {
-        if (e.evt.button === 2) return; // Ignore right click
+        if (e.evt.button === 2) return;
         setContextMenu(null);
 
-        // Start drawing with pen
         if (drawingState?.type === 'pen') {
              isDrawingRef.current = true;
              const stage = e.target.getStage();
@@ -430,7 +430,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ stageRef, objects, background
     }
     
     const handleStageMouseUp = (e: any) => {
-         // Finish drawing with pen
          if (drawingState?.type === 'pen' && isDrawingRef.current) {
              isDrawingRef.current = false;
              if (tempLinePoints.length > 0) {
@@ -443,19 +442,23 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ stageRef, objects, background
     const handleStageMouseMove = (e: any) => {
         if (!drawingState) {
             setTempLinePoints([]);
+            setCursorPosition(null);
             return;
         }
         const stage = e.target.getStage();
         const pos = getRelativePointerPosition(stage);
+        setCursorPosition(pos);
         
         if (drawingState.type === 'pen') {
             if (isDrawingRef.current) {
                 setTempLinePoints(prev => [...prev, pos.x, pos.y]);
             }
         } else if (drawingState.points.length >= 2) {
+            // "Rubber band" effect: Connect existing points + current cursor position
             setTempLinePoints([...drawingState.points, pos.x, pos.y]);
         } else {
-            setTempLinePoints([]);
+             // First point clicked, waiting for second point
+             // Just track cursor if needed
         }
     };
 
@@ -529,39 +532,40 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ stageRef, objects, background
         event.target.value = '';
     };
 
-    // --- DRAG & DROP HANDLERS FOR DESKTOP ---
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-        e.preventDefault(); // Allow dropping
+        e.preventDefault(); 
     };
 
     const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
         e.preventDefault();
-
-        // 1. Handle Files (Background image/PDF)
+        
+        // Handle files drop
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
             const file = e.dataTransfer.files[0];
             processFile(file);
             return;
         }
 
-        // 2. Handle Library Items (Icons)
+        // Handle library items drop
         const json = e.dataTransfer.getData('application/json');
         if (json) {
             try {
                 const item = JSON.parse(json) as LibraryItem;
                 const stage = stageRef.current;
+                
+                if (isLineTool(item)) {
+                     setDrawingState({ type: item.type as any, points: [], item: item });
+                     // We could optionally set the first point here based on drop position
+                     return;
+                }
+
                 if (stage && containerRef.current) {
-                    // We need to calculate the position in the stage coordinates.
-                    // 1. Get mouse position relative to the container div
                     const stageRect = containerRef.current.getBoundingClientRect();
                     const rawX = e.clientX - stageRect.left;
                     const rawY = e.clientY - stageRect.top;
-                    
-                    // 2. Transform that into stage coordinates (accounting for zoom/pan)
                     const transform = stage.getAbsoluteTransform().copy();
                     transform.invert();
                     const pos = transform.point({ x: rawX, y: rawY });
-                    
                     addObject(item, pos);
                 }
             } catch (err) {
@@ -573,12 +577,11 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ stageRef, objects, background
 
     return (
         <div 
-            className="flex-1 relative overflow-hidden bg-slate-900 touch-none" 
+            className={`flex-1 relative overflow-hidden bg-slate-900 touch-none ${drawingState || pendingItem ? 'cursor-crosshair' : 'cursor-default'}`} 
             ref={containerRef}
             onDragOver={handleDragOver}
             onDrop={handleDrop}
         >
-             {/* Canvas-lager */}
             <Stage
                 ref={stageRef}
                 width={size.width}
@@ -614,7 +617,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ stageRef, objects, background
                                 if (!drawingState && !pendingItem) setSelectedId(id);
                             }}
                             onChange={(attrs) => {
-                                onSnapshot(); // Spara historik innan ändring
+                                onSnapshot();
                                 updateObject(obj.id, attrs);
                             }}
                             onTextDblClick={(o, node) => {
@@ -628,25 +631,48 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ stageRef, objects, background
                         />
                     ))}
                     
-                    {/* Ritning pågår - Spök-linjer */}
-                    {drawingState && tempLinePoints.length >= 2 && (
-                        <Line
-                            points={tempLinePoints}
-                            stroke={drawingState.type === 'pen' ? (drawingState.item.initialProps as any).stroke : "rgba(255, 255, 255, 0.7)"}
-                            strokeWidth={drawingState.type === 'pen' ? (drawingState.item.initialProps as any).strokeWidth : 2}
-                            dash={drawingState.type !== 'pen' ? [10, 5] : undefined}
-                            tension={drawingState.type === 'pen' ? 0.5 : 0}
-                            lineCap="round"
-                            lineJoin="round"
-                            bezier={drawingState.type === 'pen'}
-                        />
+                    {/* VISUAL FEEDBACK FOR DRAWING TOOLS */}
+                    {drawingState && (
+                        <>
+                             {/* Gummiband-linje (Elastisk) */}
+                             {tempLinePoints.length >= 2 && (
+                                <Line
+                                    points={tempLinePoints}
+                                    stroke={drawingState.type === 'pen' ? (drawingState.item.initialProps as any).stroke : "white"}
+                                    strokeWidth={drawingState.type === 'pen' ? (drawingState.item.initialProps as any).strokeWidth : 2}
+                                    dash={drawingState.type !== 'pen' ? [5, 5] : undefined}
+                                    opacity={0.8}
+                                    tension={drawingState.type === 'pen' ? 0.5 : 0}
+                                    lineCap="round"
+                                    lineJoin="round"
+                                    bezier={drawingState.type === 'pen'}
+                                    listening={false}
+                                />
+                            )}
+                            
+                            {/* Noder/Punkter för Staket, Gångväg etc (Ej Penna) */}
+                            {drawingState.type !== 'pen' && drawingState.points.map((_, i) => {
+                                if (i % 2 !== 0) return null; // Skip y coords
+                                const x = drawingState.points[i];
+                                const y = drawingState.points[i+1];
+                                return (
+                                    <Circle 
+                                        key={i}
+                                        x={x} 
+                                        y={y} 
+                                        radius={4} 
+                                        fill="white" 
+                                        stroke="#3b82f6" 
+                                        strokeWidth={2}
+                                        listening={false}
+                                    />
+                                );
+                            })}
+                        </>
                     )}
-                    
-                    {/* Färdiga linjer som ritas just nu visas via objects-arrayen ovan */}
                 </Layer>
             </Stage>
 
-             {/* Import-ruta om ingen bakgrund finns */}
              {!bgImage && (
                 <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
                     <div className="bg-slate-800/80 p-8 rounded-xl border border-slate-600 text-center pointer-events-auto shadow-2xl">
@@ -675,7 +701,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ stageRef, objects, background
                 </div>
             )}
             
-             {/* UI-kontroller (Zoom, Center, Delete) */}
              <div className="absolute bottom-6 right-6 flex flex-col gap-2 z-20">
                 {selectedId && (
                     <button 
@@ -735,7 +760,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ stageRef, objects, background
                 </div>
             </div>
             
-            {/* Undo/Redo Floating Buttons on Canvas */}
             <div className="absolute top-4 right-4 flex gap-2 z-20">
                  <button 
                     onClick={undo} 
@@ -759,7 +783,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ stageRef, objects, background
                 </button>
             </div>
 
-            {/* Context Menu */}
             {contextMenu && (
                 <div 
                     className="absolute bg-slate-800 border border-slate-600 rounded-lg shadow-xl z-50 overflow-hidden min-w-[150px]"

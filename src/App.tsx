@@ -1,13 +1,13 @@
 
 import React, { useState, useRef, useEffect, useCallback, Suspense } from 'react';
-import LibraryPanel from './components/LibraryPanel';
-import CanvasPanel from './components/CanvasPanel';
-import LegendPanel from './components/LegendPanel';
-import Header from './components/Header';
-const ThreeDView = React.lazy(() => import('./components/ThreeDView'));
-import { LibraryItem, APDObject, CustomLegendItem, isCrane, isWalkway, isFence, isSchakt, isConstructionTraffic, ProjectInfo } from './types/index';
-import { isPointInCircle, isPointInRotatedRect } from './utils/geometry';
-import { useHistory } from './hooks/useHistory';
+import LibraryPanel from '../components/LibraryPanel';
+import CanvasPanel from '../components/CanvasPanel';
+import LegendPanel from '../components/LegendPanel';
+import Header from '../components/Header';
+const ThreeDView = React.lazy(() => import('../components/ThreeDView'));
+import { LibraryItem, APDObject, CustomLegendItem, isCrane, isWalkway, isFence, isSchakt, isConstructionTraffic, ProjectInfo } from '../types/index';
+import { isPointInCircle, isPointInRotatedRect } from '../utils/geometry';
+import { useHistory } from '../hooks/useHistory';
 
 type DrawingState = {
     type: 'walkway' | 'fence' | 'construction-traffic' | 'pen';
@@ -246,7 +246,7 @@ const App: React.FC = () => {
                                         <path d="M4 42 L 60 42 L 60 48 C 60 50, 4 50, 4 48 Z" fill="#FFC107" stroke="#fff" strokeWidth="2"/>
                                         <rect x="28" y="18" width="8" height="12" fill="#FFE082"/>
                                     </svg>
-                                    <svg className="hammer-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <svg className="hammer-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/.svg">
                                         <path d="M14.5 5.5L18.5 9.5" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round"/>
                                         <path d="M12 8L16 12L7 21L3 17L12 8Z" fill="#a16207" stroke="#fff" strokeWidth="1"/>
                                         <path d="M16 3L21 8" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>

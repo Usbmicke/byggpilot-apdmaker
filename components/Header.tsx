@@ -299,7 +299,7 @@ const Header: React.FC<HeaderProps> = ({
                 <div ref={exportTemplateRef} className="bg-white text-slate-900 p-8 flex flex-col items-stretch" style={{ width: 1400, height: 900 }}>
                     <div className="border-b-4 border-slate-900 mb-6 pb-4 flex justify-between items-end">
                         <div className="flex flex-col">
-                            <h1 className="text-5xl font-black tracking-tighter uppercase text-slate-900 leading-none" style={{fontFamily: ''Arial Black', sans-serif'}}>APD-PLAN</h1>
+                            <h1 className="text-5xl font-black tracking-tighter uppercase text-slate-900 leading-none">APD-PLAN</h1>
                             {projectInfo.company && <h2 className="text-2xl font-bold text-slate-600 uppercase tracking-wide mt-1">{projectInfo.company}</h2>}
                         </div>
                         <div className="text-right flex flex-col items-end">

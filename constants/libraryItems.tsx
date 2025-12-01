@@ -106,7 +106,7 @@ const BrandpostIcon = () => <SvgIcon svg={BrandpostSVG} />;
 const OgonduschIcon = () => <SvgIcon svg={OgonduschSVG} />;
 
 // Miljö
-const MiljostationIcon = () => <SvgIcon svg={MiljostationSVG} />;
+const MiljostationIcon = () => <img src="/assets/ikoner/miljostation.jpg" alt="Miljöstation" className="w-full h-full object-cover" />;
 const FarligtAvfallIcon = () => <SvgIcon svg={FarligtAvfallSVG} />;
 
 // Utrustning
@@ -169,7 +169,7 @@ export const LIBRARY_CATEGORIES: { name: string; items: LibraryItem[] }[] = [
     {
         name: "Miljö",
         items: [
-            { type: 'miljostation', name: 'Miljöstation', icon: <MiljostationIcon />, initialProps: { iconUrl: createIcon(MiljostationSVG) } },
+            { type: 'miljostation', name: 'Miljöstation', icon: <MiljostationIcon />, initialProps: { iconUrl: '/assets/ikoner/miljostation.jpg' } },
             { type: 'farligt-avfall', name: 'Farligt avfall', icon: <FarligtAvfallIcon />, initialProps: { iconUrl: createIcon(FarligtAvfallSVG) } },
         ]
     },

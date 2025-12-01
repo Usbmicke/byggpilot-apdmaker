@@ -74,14 +74,14 @@ const LibraryPanel: React.FC<LibraryPanelProps> = ({ onItemSelect, isOpen, onClo
         <>
             {/* Bakgrund för mobil när menyn är öppen */}
             <div
-                className={`md:hidden fixed inset-0 bg-black bg-opacity-50 z-20 transition-opacity ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                className={`md:hidden fixed top-[72px] inset-x-0 bottom-0 bg-black bg-opacity-50 z-20 transition-opacity ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                 onClick={onClose}
                 aria-hidden="true"
             />
             
             <aside 
                 className={`w-80 max-w-full bg-slate-900 text-slate-300 p-4 overflow-y-auto flex-shrink-0 transition-transform duration-300 ease-in-out border-r border-slate-700
-                            fixed top-0 left-0 h-full z-30 shadow-2xl
+                            fixed top-[72px] left-0 bottom-0 z-30 shadow-2xl
                             md:static md:h-auto md:w-64 md:translate-x-0 md:shadow-none
                             ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
             >

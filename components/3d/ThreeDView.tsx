@@ -1,9 +1,10 @@
 
 import React, { useRef, useMemo, useState, useEffect } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Billboard, Html, Stars, Grid } from '@react-three/drei';
 import * as THREE from 'three';
-import { APDObject, isSchakt, isFence, isWalkway, isCrane, SchaktAPDObject } from '../types/index';
+import { APDObject, isSchakt, isFence, isWalkway, SchaktAPDObject } from '../../types/index';
+import InstancedIconBillboards from './InstancedIconBillboards';
 
 const GROUND_SIZE_DEFAULT = 2000;
 
@@ -69,27 +70,6 @@ const SafeTexturePlane: React.FC<{ url: string; width: number; height: number }>
             <planeGeometry args={[width, height]} />
             {texture ? <meshBasicMaterial map={texture} toneMapped={false} /> : <meshStandardMaterial color="#334155" />}
         </mesh>
-    );
-}
-
-const SafeIconBillboard: React.FC<{ obj: APDObject; offset: { x: number; y: number } }> = ({ obj, offset }) => {
-    const url = (obj as any).iconUrl;
-    const texture = useTextureSafe(url);
-    const size = isCrane(obj) ? 100 : 40; 
-    const yPos = isCrane(obj) ? 50 : 25;
-    if (!url) return null;
-
-    return (
-        <Billboard position={[obj.x - offset.x, yPos, obj.y - offset.y]}>
-            <mesh>
-                <planeGeometry args={[size, size]} />
-                {texture ? <meshBasicMaterial map={texture} transparent alphaTest={0.5} side={THREE.DoubleSide} toneMapped={false} /> : <meshBasicMaterial color="#fbbf24" />}
-            </mesh>
-            <mesh position={[0, -yPos/2, 0]}>
-                 <cylinderGeometry args={[0.5, 0.5, yPos, 4]} />
-                 <meshStandardMaterial color="#333" />
-            </mesh>
-        </Billboard>
     );
 }
 
@@ -205,6 +185,9 @@ const ThreeDView: React.FC<ThreeDViewProps> = ({ objects, background, updateObje
         y: background ? background.height / 2 : 0
     }), [background]);
 
+    const nonInstancedObjects = useMemo(() => objects.filter(obj => !(obj as any).iconUrl), [objects]);
+    const instancedObjects = useMemo(() => objects.filter(obj => (obj as any).iconUrl), [objects]);
+
     return (
         <ErrorBoundary>
             <div className="flex-1 relative h-full bg-slate-900 w-full">
@@ -228,7 +211,8 @@ const ThreeDView: React.FC<ThreeDViewProps> = ({ objects, background, updateObje
 
                     <group position={[0, 0, 0]}>
                         <GroundPlane background={background} />
-                        {objects && objects.map(obj => {
+                        <InstancedIconBillboards objects={instancedObjects} offset={offset} />
+                        {nonInstancedObjects.map(obj => {
                             if (isSchakt(obj)) {
                                 return <Building key={obj.id} obj={obj} offset={offset} onUpdate={updateObject} />;
                             }
@@ -237,9 +221,6 @@ const ThreeDView: React.FC<ThreeDViewProps> = ({ objects, background, updateObje
                             }
                             if (isWalkway(obj)) {
                                 return <Fence3D key={obj.id} points={obj.points} offset={offset} color="#22d3ee" height={3} />;
-                            }
-                            if ((obj as any).iconUrl) {
-                                return <SafeIconBillboard key={obj.id} obj={obj} offset={offset} />;
                             }
                             return null;
                         })}

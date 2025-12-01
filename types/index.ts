@@ -1,13 +1,19 @@
 
-// To resolve the "Cannot find namespace 'JSX'" error, React must be imported.
 import React from 'react';
 
 export interface LibraryItem {
     type: string;
     name: string;
-    // FIX: Replaced JSX.Element with React.ReactElement to resolve "Cannot find namespace 'JSX'" error.
     icon: React.ReactElement;
     initialProps: Partial<APDObject>;
+}
+
+export interface ProjectInfo {
+    company: string;
+    projectName: string;
+    projectId: string;
+    createdBy: string;
+    logoUrl: string;
 }
 
 interface BaseAPDObject {
@@ -37,7 +43,7 @@ export interface LineAPDObject extends BaseAPDObject {
     strokeWidth: number;
     isInRiskZone?: boolean;
     dash?: number[];
-    tension?: number; // Added for freehand smoothing
+    tension?: number;
 }
 
 export interface CraneAPDObject extends IconAPDObject {
@@ -50,11 +56,9 @@ export interface SchaktAPDObject extends BaseAPDObject {
     fill: string;
     stroke: string;
     strokeWidth: number;
-    // 3D Properties
     height3d?: number;
     color3d?: string;
 }
-
 
 export type APDObject = IconAPDObject | TextAPDObject | LineAPDObject | CraneAPDObject | SchaktAPDObject;
 

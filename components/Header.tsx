@@ -4,6 +4,9 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { APDObject, CustomLegendItem, ProjectInfo } from '../types/index';
 import { LIBRARY_CATEGORIES } from '../constants/libraryItems';
+import ExportModal from './export/ExportModal';
+import ExportTemplate from './export/ExportTemplate';
+import ExportingLoader from './export/ExportingLoader';
 
 interface HeaderProps {
     stageRef: React.RefObject<any>;
@@ -68,8 +71,6 @@ const Header: React.FC<HeaderProps> = ({
                 }));
             }
         });
-
-        // Custom items logic can be added here if needed
 
         return grouped;
     }, [objects]);
@@ -169,7 +170,6 @@ const Header: React.FC<HeaderProps> = ({
 
                     drawingDataURL = stage.toDataURL({ pixelRatio: 2 });
 
-                    // Restore stage
                     stage.width(oldSize.width);
                     stage.height(oldSize.height);
                     stage.scale(oldScale);
@@ -186,7 +186,6 @@ const Header: React.FC<HeaderProps> = ({
             
             setExportImageSrc(drawingDataURL);
 
-            // Allow state to update and image to be set in hidden div
             setTimeout(async () => {
                 if (exportTemplateRef.current) {
                     try {
@@ -220,7 +219,7 @@ const Header: React.FC<HeaderProps> = ({
                         setExportFormat(null);
                     }
                 }
-            }, 1000); // Increased timeout for complex scenes
+            }, 1000);
         }, 100);
     };
 
@@ -248,132 +247,25 @@ const Header: React.FC<HeaderProps> = ({
 
     return (
         <header className="bg-slate-800 border-b border-slate-700 p-3 flex items-center justify-between z-10 relative shadow-md h-[72px]">
-            {showExportModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-slate-800 rounded-xl shadow-2xl w-full max-w-md border border-slate-600 overflow-hidden">
-                         <div className="bg-slate-700 p-4 border-b border-slate-600 flex justify-between items-center">
-                            <h3 className="text-xl font-bold text-white">Projektinformation</h3>
-                            <button onClick={() => setShowExportModal(false)} className="text-slate-400 hover:text-white">&times;</button>
-                         </div>
-                         <div className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-1">Företagsnamn</label>
-                                <input 
-                                    type="text" 
-                                    value={projectInfo.company}
-                                    onChange={(e) => setProjectInfo({...projectInfo, company: e.target.value})}
-                                    className="w-full bg-slate-900 border border-slate-600 rounded-lg p-2 text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                                    placeholder="T.ex. Byggbolaget AB"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-1">Projektnamn</label>
-                                <input 
-                                    type="text" 
-                                    value={projectInfo.projectName}
-                                    onChange={(e) => setProjectInfo({...projectInfo, projectName: e.target.value})}
-                                    className="w-full bg-slate-900 border border-slate-600 rounded-lg p-2 text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                                    placeholder="T.ex. Kvarteret Eken"
-                                />
-                            </div>
-                             <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-1">Projektnummer</label>
-                                <input 
-                                    type="text" 
-                                    value={projectInfo.projectId}
-                                    onChange={(e) => setProjectInfo({...projectInfo, projectId: e.target.value})}
-                                    className="w-full bg-slate-900 border border-slate-600 rounded-lg p-2 text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                                    placeholder="T.ex. 2024-001"
-                                />
-                            </div>
-                         </div>
-                         <div className="bg-slate-700 p-4 flex justify-end gap-3 border-t border-slate-600">
-                             <button onClick={() => setShowExportModal(false)} className="px-4 py-2 text-slate-300 hover:text-white font-medium transition-colors">Avbryt</button>
-                             <button onClick={generateCompositeExport} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-medium shadow-lg transition-all transform active:scale-95">Exportera</button>
-                         </div>
-                    </div>
-                </div>
-            )}
+            <ExportModal 
+                show={showExportModal}
+                onClose={() => setShowExportModal(false)}
+                onExport={generateCompositeExport}
+                projectInfo={projectInfo}
+                setProjectInfo={setProjectInfo}
+            />
+            <ExportTemplate 
+                ref={exportTemplateRef}
+                projectInfo={projectInfo}
+                exportImageSrc={exportImageSrc}
+                legendData={legendData}
+            />
+            {isExporting && <ExportingLoader />}
 
-            <div style={{ position: 'fixed', left: '-2000px', top: '-2000px', width: '1400px', zIndex: -1 }}>
-                <div ref={exportTemplateRef} className="bg-white text-slate-900 p-8 flex flex-col items-stretch" style={{ width: 1400, height: 900 }}>
-                    <div className="border-b-4 border-slate-900 mb-6 pb-4 flex justify-between items-end">
-                        <div className="flex flex-col">
-                            <h1 className="text-5xl font-black tracking-tighter uppercase text-slate-900 leading-none">APD-PLAN</h1>
-                            {projectInfo.company && <h2 className="text-2xl font-bold text-slate-600 uppercase tracking-wide mt-1">{projectInfo.company}</h2>}
-                        </div>
-                        <div className="text-right flex flex-col items-end">
-                             {projectInfo.projectName && <span className="text-3xl font-bold text-slate-800">{projectInfo.projectName}</span>}
-                             {projectInfo.projectId && <span className="text-xl font-medium text-slate-500 mt-1">Projekt-Nr: {projectInfo.projectId}</span>}
-                             <span className="text-lg font-medium text-slate-400 mt-2">{new Date().toLocaleDateString('sv-SE')}</span>
-                        </div>
-                    </div>
-                    
-                    <div className="flex-1 flex items-start gap-6" style={{ height: 'calc(100% - 130px)' }}>
-                        <div className="flex-1 h-full border-4 border-slate-300 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center relative">
-                           {exportImageSrc && <img src={exportImageSrc} alt="Planritning" className="max-w-full max-h-full object-contain" />}
-                        </div>
-
-                        <div className="w-[280px] flex-shrink-0 h-full flex flex-col bg-slate-100 p-4 rounded-lg border border-slate-300 text-sm">
-                            <h2 className="text-xl font-bold mb-3 border-b-2 border-slate-400 pb-2 uppercase tracking-wide">Förteckning</h2>
-                            <div className="flex-1 overflow-y-auto pr-2 space-y-3">
-                                {Object.keys(legendData).length > 0 ? Object.entries(legendData).map(([category, items]) => (
-                                    <div key={category}>
-                                        <h3 className="font-bold text-slate-800 mb-2 uppercase text-xs tracking-wider border-b border-slate-300 pb-1">{category}</h3>
-                                        <div className="space-y-2">
-                                            {(items as { type: string, name: string, count: number, icon: React.ReactElement }[]).map((item, idx) => (
-                                                <div key={idx} className="flex items-center justify-between bg-white p-2 rounded-md shadow-sm border border-slate-200">
-                                                    <div className="flex items-center gap-3 overflow-hidden">
-                                                        <div className="w-6 h-6 flex-shrink-0 text-slate-800 flex items-center justify-center">
-                                                            {React.cloneElement(item.icon, { className: "w-full h-full" })}
-                                                        </div>
-                                                        <span className="font-semibold text-slate-800 text-xs truncate leading-tight">{item.name}</span>
-                                                    </div>
-                                                    <div className="flex items-center justify-center w-6 h-6 bg-slate-200 rounded-full flex-shrink-0">
-                                                        <span className="font-bold text-slate-800 text-xs">{item.count}</span>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )) : (
-                                    <p className="text-slate-500 italic text-sm mt-4">Inga objekt utplacerade.</p>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                    <div className="mt-4 pt-3 border-t-2 border-slate-200 text-center text-slate-500 text-sm font-medium flex justify-between">
-                         <span>Skapad med ByggPilot APD-Maker</span>
-                         <span>{new Date().toLocaleString('sv-SE', { dateStyle: 'short', timeStyle: 'short'})}</span>
-                    </div>
-                </div>
-            </div>
-
-            {isExporting && (
-                 <div className="absolute inset-0 bg-slate-900/95 z-50 flex items-center justify-center backdrop-blur-sm">
-                    <div className="construction-loader">
-                         <div className="relative">
-                            <svg className="helmet-icon" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M8 38 C 8 20, 56 20, 56 38 L 56 42 L 8 42 Z" fill="#FFC107" stroke="#fff" strokeWidth="2"/>
-                                <path d="M4 42 L 60 42 L 60 48 C 60 50, 4 50, 4 48 Z" fill="#FFC107" stroke="#fff" strokeWidth="2"/>
-                                <rect x="28" y="18" width="8" height="12" fill="#FFE082"/>
-                            </svg>
-                            <svg className="hammer-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M14.5 5.5L18.5 9.5" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round"/>
-                                <path d="M12 8L16 12L7 21L3 17L12 8Z" fill="#a16207" stroke="#fff" strokeWidth="1"/>
-                                <path d="M16 3L21 8" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
-                                <path d="M13 6L18 11" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
-                            </svg>
-                         </div>
-                         <div className="loader-text-main">BYGGPILOT</div>
-                         <div className="loader-text-sub">Export pågår...</div>
-                    </div>
-                </div>
-            )}
-
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
                  <button onClick={toggleLibrary} className="md:hidden p-2 rounded-md hover:bg-slate-700"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg></button>
-                <h1 className="text-xl md:text-2xl font-bold text-slate-100 mr-4 whitespace-nowrap">ByggPilot</h1>
+                 <img src="/assets/ikoner/Byggpilotlogga.png" alt="ByggPilot Logotyp" className="h-10" />
+                 <span className="text-lg font-bold text-slate-100 whitespace-nowrap hidden md:inline">ByggPilot APD Maker</span>
             </div>
 
             <div className="flex-1 flex items-center justify-end gap-2 overflow-x-auto no-scrollbar">

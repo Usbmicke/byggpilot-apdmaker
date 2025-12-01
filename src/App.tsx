@@ -4,7 +4,7 @@ import LibraryPanel from '../components/LibraryPanel';
 import CanvasPanel from '../components/CanvasPanel';
 import LegendPanel from '../components/LegendPanel';
 import Header from '../components/Header';
-const ThreeDView = React.lazy(() => import('../components/ThreeDView'));
+const ThreeDView = React.lazy(() => import('../components/3d/ThreeDView'));
 import { LibraryItem, APDObject, CustomLegendItem, isCrane, isWalkway, isFence, isSchakt, isConstructionTraffic, ProjectInfo } from '../types/index';
 import { isPointInCircle, isPointInRotatedRect } from '../utils/geometry';
 import { useHistory } from '../hooks/useHistory';

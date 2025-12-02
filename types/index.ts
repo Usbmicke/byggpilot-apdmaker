@@ -1,95 +1,70 @@
 
-import React from 'react';
+// Allmänna typer
+export type DrawingTool = 'walkway' | 'fence' | 'construction-traffic' | 'pen' | 'text' | 'schakt' | 'crane';
 
+// Typ-vakter (Type Guards)
+export const isLineTool = (tool: string): tool is 'walkway' | 'fence' | 'construction-traffic' | 'pen' => 
+    ['walkway', 'fence', 'construction-traffic', 'pen'].includes(tool);
+
+export const isTextTool = (tool: string): tool is 'text' => tool === 'text';
+
+export const isSchakt = (obj: APDObject): obj is APDObject & { type: 'schakt' } => obj.type === 'schakt';
+export const isCrane = (obj: APDObject): obj is APDObject & { type: 'crane' } => obj.type === 'crane';
+export const isText = (obj: APDObject): obj is APDObject & { type: 'text' } => obj.type === 'text';
+export const isWalkway = (obj: APDObject): obj is APDObject & { type: 'walkway' } => obj.type === 'walkway';
+export const isFence = (obj: APDObject): obj is APDObject & { type: 'fence' } => obj.type === 'fence';
+export const isConstructionTraffic = (obj: APDObject): obj is APDObject & { type: 'construction-traffic' } => obj.type === 'construction-traffic';
+export const isPen = (obj: APDObject): obj is APDObject & { type: 'pen' } => obj.type === 'pen';
+
+// Gränssnitt (Interfaces)
 export interface LibraryItem {
-    type: string;
     name: string;
-    icon: React.ReactElement;
-    initialProps: Partial<APDObject>;
+    type: DrawingTool;
+    icon?: string;
+    width?: number;
+    height?: number;
+    radius?: number;
+    stroke?: string;
+    strokeWidth?: number;
+    fill?: string;
+    dash?: number[];
+}
+
+export interface APDObject {
+    id: string;
+    item: LibraryItem;
+    x: number;
+    y: number;
+    rotation: number;
+    scaleX: number;
+    scaleY: number;
+    type: DrawingTool;
+    points?: number[];
+    text?: string;
+    fontSize?: number;
+    fill?: string;
+    stroke?: string;
+    strokeWidth?: number;
+    dash?: number[];
+    radius?: number;
+    width?: number;
+    height?: number;
+    visible?: boolean; 
+}
+
+export interface CustomLegendItem {
+    id: string;
+    name: string;
+    color: string;
 }
 
 export interface ProjectInfo {
     company: string;
     projectName: string;
     projectId: string;
-    createdBy: string;
-    logoUrl: string;
 }
 
-interface BaseAPDObject {
-    id: string;
-    x: number;
-    y: number;
-    rotation: number;
-    scaleX: number;
-    scaleY: number;
-    label: string;
-    type: string;
-}
-
-export interface IconAPDObject extends BaseAPDObject {
-    iconUrl: string;
-}
-
-export interface TextAPDObject extends BaseAPDObject {
-    text: string;
-    fontSize: number;
-    fill: string;
-}
-
-export interface LineAPDObject extends BaseAPDObject {
-    points: number[];
-    stroke: string;
-    strokeWidth: number;
-    isInRiskZone?: boolean;
-    dash?: number[];
-    tension?: number;
-}
-
-export interface CraneAPDObject extends IconAPDObject {
-    radius: number;
-}
-
-export interface SchaktAPDObject extends BaseAPDObject {
-    width: number;
-    height: number;
-    fill: string;
-    stroke: string;
-    strokeWidth: number;
-    height3d?: number;
-    color3d?: string;
-}
-
-export type APDObject = IconAPDObject | TextAPDObject | LineAPDObject | CraneAPDObject | SchaktAPDObject;
-
-export interface CustomLegendItem {
-    id: string;
-    name:string;
-    count: number;
-}
-
-// Type Guards
-export function isText(obj: APDObject): obj is TextAPDObject {
-    return obj.type === 'text';
-}
-export function isWalkway(obj: APDObject): obj is LineAPDObject {
-    return obj.type === 'walkway';
-}
-export function isFence(obj: APDObject): obj is LineAPDObject {
-    return obj.type === 'fence';
-}
-export function isConstructionTraffic(obj: APDObject): obj is LineAPDObject {
-    return obj.type === 'construction-traffic';
-}
-export function isPen(obj: APDObject): obj is LineAPDObject {
-    return obj.type === 'pen';
-}
-export function isCrane(obj: APDObject): obj is CraneAPDObject {
-    return obj.type === 'crane';
-}
-export function isSchakt(obj: APDObject): obj is SchaktAPDObject {
-    return obj.type === 'schakt';
-}
-export function isLineTool(item: LibraryItem): boolean {
-    return item.type === 'walkway' || item.type === 'fence' || item.type === 'construction-traffic' || item.type === 'pen';
+export interface LibraryCategory {
+    name: string;
+    items: LibraryItem[];
 }

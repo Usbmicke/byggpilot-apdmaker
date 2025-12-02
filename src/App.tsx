@@ -1,82 +1,202 @@
 
-import React, { useState, useRef, useEffect, useCallback, Suspense } from 'react';
-import toast, { Toaster } from 'react-hot-toast';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import LibraryPanel from '../components/LibraryPanel';
-import CanvasPanel from '../components/CanvasPanel';
-import LegendPanel from '../components/LegendPanel';
+import toast, { Toaster } from 'react-hot-toast';
+import { pdfjs } from 'react-pdf';
+import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
+import 'react-pdf/dist/esm/Page/TextLayer.css';
+
+import { APDObject, LibraryItem, ProjectInfo, DrawingTool, isTextTool, CustomLegendItem } from '../types';
+import { defaultProjectInfo, defaultCustomLegend } from '../constants/libraryItems'; // Korrigerad sökväg
+import useHistory from '../hooks/useHistory';
+
 import Header from '../components/Header';
-import { LibraryItem, APDObject, CustomLegendItem, ProjectInfo, isLineTool, isTextTool } from '../types/index';
-import { useHistory } from '../hooks/useHistory';
-import { LIBRARY_CATEGORIES } from '../config/library'; // <-- NY IMPORT
+import Library from '../components/LibraryPanel';
+import Legend from '../components/LegendPanel';
+import CanvasPanel from '../components/CanvasPanel';
+import { loadAPD, saveAPD } from '../utils/apdFileHandler';
+import { handlePDF } from '../utils/pdfHandler';
 
-const ThreeDView = React.lazy(() => import('../components/3d/ThreeDView'));
-
-type DrawingState = { type: 'walkway' | 'fence' | 'construction-traffic' | 'pen'; points: number[]; item: LibraryItem; } | null;
+// Konfigurera PDF.js worker
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
 
 const App: React.FC = () => {
-    const { state: objects, setState: setObjects, snapshot, undo, redo, canUndo, canRedo, resetHistory } = useHistory<APDObject[]>([]);
-    const [background, setBackground] = useState<{ url: string, width: number, height: number } | null>(null);
-    const [selectedId, setSelectedId] = useState<string | null>(null);
-    const [drawingState, setDrawingState] = useState<DrawingState>(null);
-    const [pendingItem, setPendingItem] = useState<LibraryItem | null>(null);
-    const [isLibraryOpen, setIsLibraryOpen] = useState(true);
-    const [isLegendOpen, setIsLegendOpen] = useState(false);
-    const [show3D, setShow3D] = useState(false);
-    const [projectInfo, setProjectInfo] = useState<ProjectInfo>({ company: '', projectName: '', projectId: '' });
-    const [customLegendItems, setCustomLegendItems] = useState<CustomLegendItem[]>([]);
-    
     const stageRef = useRef<any>(null);
     const mainContainerRef = useRef<HTMLDivElement>(null);
-    const backgroundUrlRef = useRef<string | null>(null);
 
-    // ... (alla funktioner som loadProjectData, handleFile, addObject, etc. är oförändrade) ...
-    const loadProjectData = useCallback((data: { objects?: APDObject[], customLegendItems?: CustomLegendItem[], projectInfo?: ProjectInfo, background?: any }) => {
-        if (data.objects) resetHistory(data.objects);
-        if (data.customLegendItems) setCustomLegendItems(data.customLegendItems);
-        if (data.projectInfo) setProjectInfo(data.projectInfo);
-        if (data.background) setBackground(data.background);
-    }, [resetHistory]);
+    const [objects, setObjects, { undo, redo, canUndo, canRedo, snapshot }] = useHistory<APDObject[]>([]);
+    const [background, setBackground] = useState<{ url: string; width: number; height: number; } | null>(null);
+    const [selectedId, setSelectedId] = useState<string | null>(null);
+    const [projectInfo, setProjectInfo] = useState<ProjectInfo>(defaultProjectInfo);
+    const [customLegendItems, setCustomLegendItems] = useState<CustomLegendItem[]>(defaultCustomLegend);
+    
+    const [drawingState, setDrawingState] = useState<{ type: DrawingTool, points: number[], item: LibraryItem } | null>(null);
+    const [pendingItem, setPendingItem] = useState<LibraryItem | null>(null);
+    
+    const [isLibraryOpen, setIsLibraryOpen] = useState(true);
+    const [isLegendOpen, setIsLegendOpen] = useState(true);
+    const [show3D, setShow3D] = useState(false); 
 
-    const handleFile = useCallback((file: File) => { /* ... */ }, [loadProjectData]);
-    const addObject = useCallback((item: LibraryItem, pos: {x: number, y: number}, extraProps: Partial<APDObject> = {}) => { /* ... */ }, []);
-    const updateObject = useCallback((id: string, attrs: Partial<APDObject>) => { /* ... */ }, []);
-    const removeObject = useCallback((id: string) => { /* ... */ }, []);
-    const clearProject = useCallback(() => { /* ... */ }, []);
-    const handleLibraryItemSelect = useCallback((item: LibraryItem) => { /* ... */ }, []);
-    const cancelActions = useCallback(() => { /* ... */ }, []);
-    const checkDeselect = (e: any) => { if (e.target === e.target.getStage()) setSelectedId(null); };
+    // Effekt för att spara automatiskt
+    useEffect(() => {
+        const handle = setTimeout(() => saveAPD({ projectInfo, background, objects, customLegendItems }), 2000);
+        return () => clearTimeout(handle);
+    }, [objects, background, projectInfo, customLegendItems]);
 
-    useEffect(() => { /* ... keydown listener ... */ }, []);
+    // Effekt för att hantera kortkommandon
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.ctrlKey || e.metaKey) {
+                if (e.key === 'z') { e.preventDefault(); undo(); }
+                if (e.key === 'y' || (e.key === 'Z' && e.shiftKey)) { e.preventDefault(); redo(); }
+            }
+            if (e.key === 'Escape') {
+                setDrawingState(null);
+                setPendingItem(null);
+                setSelectedId(null);
+            }
+            if(e.key === 'Delete' || e.key === 'Backspace') {
+                if(selectedId) removeObject(selectedId)
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [undo, redo, selectedId]);
+
+
+    const checkDeselect = (e: any) => {
+        const clickedOnEmpty = e.target === e.target.getStage();
+        if (clickedOnEmpty) {
+            setSelectedId(null);
+        }
+    };
+
+    const addObject = (item: LibraryItem, position: {x: number, y: number}, extraProps: Partial<APDObject> = {}) => {
+        snapshot(); // Spara nuvarande state för ångra
+        const newObject: APDObject = {
+            id: uuidv4(),
+            item: item,
+            type: item.type,
+            x: position.x,
+            y: position.y,
+            rotation: 0,
+            scaleX: 1,
+            scaleY: 1,
+            ...extraProps
+        };
+        setObjects(prev => [...prev, newObject]);
+    };
+
+    const removeObject = (id: string) => {
+        snapshot();
+        setObjects(prev => prev.filter(obj => obj.id !== id));
+        setSelectedId(null);
+    }
+
+    const updateObject = (id: string, attrs: Partial<APDObject>) => {
+        setObjects(prev => prev.map(obj => obj.id === id ? { ...obj, ...attrs } : obj));
+    };
+
+    const handleFile = async (file: File) => {
+        const toastId = toast.loading(`Laddar ${file.name}...`);
+        try {
+            if (file.name.endsWith('.apd')) {
+                const data = await loadAPD(file);
+                snapshot();
+                setProjectInfo(data.projectInfo);
+                setBackground(data.background);
+                setObjects(data.objects);
+                setCustomLegendItems(data.customLegendItems);
+                toast.success('Projektet har laddats!');
+            } else if (file.type.startsWith('image')) {
+                snapshot();
+                const url = URL.createObjectURL(file);
+                const img = new Image();
+                img.onload = () => setBackground({ url, width: img.width, height: img.height });
+            } else if (file.type === 'application/pdf') {
+                snapshot();
+                const bg = await handlePDF(file);
+                setBackground(bg);
+            }
+            toast.success(`${file.name} har laddats som bakgrund.`);
+        } catch (error) {
+            console.error(error);
+            toast.error(`Kunde inte ladda filen: ${error instanceof Error ? error.message : 'Okänt fel'}`);
+        } finally {
+            toast.dismiss(toastId);
+        }
+    };
+
+    const clearProject = () => {
+        snapshot();
+        setObjects([]);
+        setBackground(null);
+        setProjectInfo(defaultProjectInfo);
+        setCustomLegendItems(defaultCustomLegend);
+        setSelectedId(null);
+        toast.success('Projektet har rensats!');
+    };
 
     return (
-        <div className="flex flex-col h-screen font-sans bg-slate-800 text-slate-300 relative">
-            <Toaster position="bottom-center" toastOptions={{ className: 'bg-slate-700 text-white', success: { duration: 4000 }, error: { duration: 6000 } }} />
-            <Header {...{ stageRef, mainContainerRef, background, handleFile, objects, loadProjectData, customLegendItems, projectInfo, setProjectInfo, clearProject, toggleLibrary: () => setIsLibraryOpen(!isLibraryOpen), toggleLegend: () => setIsLegendOpen(!isLegendOpen), show3D, setShow3D, canUndo, canRedo, undo, redo }} />
-            <div className="flex flex-1 overflow-hidden" ref={mainContainerRef}>
-                <LibraryPanel onItemSelect={handleLibraryItemSelect} isOpen={isLibraryOpen} onClose={() => setIsLibraryOpen(false)} />
-                
-                <div className="relative flex-1">
-                    {show3D && background ? (
-                        <Suspense fallback={<div className='w-full h-full flex items-center justify-center'><p>Laddar 3D-vy...</p></div>}>
-                            <ThreeDView 
-                                objects={objects} 
-                                background={background} 
-                                libraryCategories={LIBRARY_CATEGORIES} // <-- NY PROP
-                            />
-                        </Suspense>
-                    ) : (
-                        <CanvasPanel 
-                            {...{ 
-                                stageRef, objects, background, selectedId, setSelectedId, checkDeselect, addObject, 
-                                updateObject, removeObject, drawingState, setDrawingState, pendingItem, setPendingItem, 
-                                onSnapshot: snapshot, handleFile
-                            }}
-                        />
-                    )}
-                </div>
+        <div className="flex flex-col h-screen bg-slate-900 text-white font-sans overflow-hidden" ref={mainContainerRef}>
+            <Toaster position="bottom-center" toastOptions={{ className: 'bg-slate-700 text-white', duration: 4000 }} />
+            
+            <Header 
+                stageRef={stageRef}
+                mainContainerRef={mainContainerRef}
+                background={background}
+                handleFile={handleFile}
+                objects={objects}
+                customLegendItems={customLegendItems}
+                projectInfo={projectInfo}
+                setProjectInfo={setProjectInfo}
+                clearProject={clearProject}
+                toggleLibrary={() => setIsLibraryOpen(!isLibraryOpen)}
+                toggleLegend={() => setIsLegendOpen(!isLegendOpen)}
+                show3D={show3D}
+                setShow3D={setShow3D}
+            />
 
-                <LegendPanel {...{ objects, customItems: customLegendItems, setCustomItems: setCustomLegendItems, isOpen: isLegendOpen, onClose: () => setIsLegendOpen(false), is3DMode: show3D }} />
+            <div className="flex flex-1 overflow-hidden">
+                <Library 
+                    isOpen={isLibraryOpen}
+                    setPendingItem={setPendingItem}
+                    setDrawingState={setDrawingState}
+                />
+
+                <div className="flex-1 flex flex-col relative">
+                    <CanvasPanel 
+                        stageRef={stageRef}
+                        objects={objects}
+                        background={background}
+                        selectedId={selectedId}
+                        setSelectedId={setSelectedId}
+                        checkDeselect={checkDeselect}
+                        addObject={addObject}
+                        updateObject={updateObject}
+                        removeObject={removeObject}
+                        drawingState={drawingState}
+                        setDrawingState={setDrawingState}
+                        pendingItem={pendingItem}
+                        setPendingItem={setPendingItem}
+                        onSnapshot={snapshot}
+                        handleFile={handleFile}
+                        undo={undo}
+                        redo={redo}
+                        canUndo={canUndo}
+                        canRedo={canRedo}
+                    />
+                </div>
+                
+                {!show3D && background && (
+                    <Legend 
+                        isOpen={isLegendOpen}
+                        projectInfo={projectInfo}
+                        setProjectInfo={setProjectInfo}
+                        customItems={customLegendItems}
+                        setCustomItems={setCustomLegendItems} 
+                    />
+                )}
             </div>
         </div>
     );

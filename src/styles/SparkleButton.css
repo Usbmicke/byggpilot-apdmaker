@@ -1,0 +1,124 @@
+/* Basstilar för Sparkle-knappar, inspirerad av Uiverse.io av JkHuger */
+.sparkle-button {
+  --active: 0;
+  --transition: 0.3s;
+  --spark: 1.5s;
+  --cut: 0.1em;
+
+  font-size: 14px; /* Anpassad storlek för header */
+  font-weight: bold;
+  border: 0;
+  cursor: pointer;
+  padding: 10px 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  border-radius: 100px;
+  position: relative;
+  background: var(--bg);
+  box-shadow: 0 0 calc(var(--active) * 2em) calc(var(--active) * 0.5em) var(--glow-color),
+    0 0em 0 0 var(--edge-color1) inset,
+    0 -0.05em 0 0 var(--edge-color2) inset;
+  scale: calc(1 + (var(--active) * 0.05));
+  transition: box-shadow var(--transition), scale var(--transition), background var(--transition);
+}
+
+.sparkle-button:active {
+  scale: 0.98;
+  transition: .1s;
+}
+
+/* Modifier-klasser för färg */
+.sparkle-green {
+  --base-hue: 142;
+  --glow-color: hsl(var(--base-hue) 71% 45% / 0.75);
+  --edge-color1: hsl(var(--base-hue) 71% 55%);
+  --edge-color2: hsl(var(--base-hue) 71% 65%);
+  --bg: radial-gradient(40% 50% at center 100%, hsl(var(--base-hue) calc(var(--active) * 71%) 80% / var(--active)), transparent),
+      radial-gradient(80% 100% at center 120%, hsl(var(--base-hue) calc(var(--active) * 71%) 70% / var(--active)), transparent),
+      hsl(var(--base-hue) 71% 45%);
+}
+
+.sparkle-blue {
+  --base-hue: 217;
+  --glow-color: hsl(var(--base-hue) 91% 60% / 0.75);
+  --edge-color1: hsl(var(--base-hue) 91% 70%);
+  --edge-color2: hsl(var(--base-hue) 91% 80%);
+  --bg: radial-gradient(40% 50% at center 100%, hsl(var(--base-hue) calc(var(--active) * 91%) 85% / var(--active)), transparent),
+      radial-gradient(80% 100% at center 120%, hsl(var(--base-hue) calc(var(--active) * 91%) 75% / var(--active)), transparent),
+      hsl(var(--base-hue) 91% 60%);
+}
+
+.sparkle-red {
+  --base-hue: 347;
+  --glow-color: hsl(var(--base-hue) 83% 51% / 0.75);
+  --edge-color1: hsl(var(--base-hue) 83% 61%);
+  --edge-color2: hsl(var(--base-hue) 83% 71%);
+  --bg: radial-gradient(40% 50% at center 100%, hsl(var(--base-hue) calc(var(--active) * 83%) 80% / var(--active)), transparent),
+      radial-gradient(80% 100% at center 120%, hsl(var(--base-hue) calc(var(--active) * 83%) 70% / var(--active)), transparent),
+      hsl(var(--base-hue) 83% 51%);
+}
+
+.sparkle-button:is(:hover, :focus-visible) {
+  --active: 1;
+}
+
+/* Inre text och ikon */
+.sparkle-button .text {
+  color: white;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+}
+
+.sparkle-button svg {
+  width: 18px;
+  height: 18px;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3));
+}
+
+/* --- Partikeleffekter --- */
+.spark {
+  position: absolute;
+  inset: 0;
+  border-radius: 100px;
+  rotate: 0deg;
+  overflow: hidden;
+  mask: linear-gradient(white, transparent 50%);
+  animation: flip calc(var(--spark) * 2) infinite steps(2, end);
+  opacity: var(--active, 0);
+  transition: opacity var(--transition);
+}
+
+@keyframes flip {
+  to {
+    rotate: 360deg;
+  }
+}
+
+.spark:before {
+  content: "";
+  position: absolute;
+  width: 200%;
+  aspect-ratio: 1;
+  top: 0%;
+  left: 50%;
+  z-index: 0;
+  translate: -50% -15%;
+  rotate: 0;
+  transform: rotate(-90deg);
+  background: conic-gradient(from 0deg, transparent 0 340deg, white 360deg);
+  animation: rotate var(--spark) linear infinite both;
+}
+
+.spark:after {
+  content: "";
+  position: absolute;
+  inset: var(--cut);
+  border-radius: 100px;
+}
+
+@keyframes rotate {
+  to {
+    transform: rotate(90deg);
+  }
+}

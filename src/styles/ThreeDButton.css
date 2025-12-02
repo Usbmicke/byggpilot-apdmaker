@@ -1,0 +1,77 @@
+/* Stilar för 3D-knappen, inspirerad av Uiverse.io av M4rco592 */
+
+.gradient-button {
+  position: relative;
+  padding: 12px 24px; /* Något mindre padding för header */
+  font-size: 16px; /* Anpassad fontstorlek */
+  font-weight: bold;
+  color: white;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-radius: 40px; /* Anpassad radie */
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px; /* Mellanrum mellan ikon och text */
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.gradient-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.gradient-button::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: conic-gradient(
+    from 0deg,
+    #ff6b6b, /* Röd */
+    #4ecdc4, /* Turkos */
+    #45b7d1, /* Blå */
+    #96ceb4, /* Grön */
+    #feca57, /* Gul */
+    #ff9ff3, /* Rosa */
+    #ff6b6b
+  );
+  z-index: -2;
+  animation: rotate-gradient 4s linear infinite; /* Kontinuerlig rotation */
+}
+
+.gradient-button::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  background: #1e293b; /* Mörkblå bakgrund som matchar appen */
+  border-radius: 37px; /* Något mindre än knappens radie */
+  z-index: -1;
+}
+
+.gradient-button:hover .gradient-text {
+  animation: hue-rotating 2s linear infinite;
+}
+
+.gradient-button:active {
+  transform: scale(0.98);
+}
+
+@keyframes rotate-gradient {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes hue-rotating {
+  to {
+    filter: hue-rotate(360deg);
+  }
+}

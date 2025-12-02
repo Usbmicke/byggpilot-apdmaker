@@ -8,6 +8,32 @@ body {
     touch-action: none;
 }
 
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.shimmer-button::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: translateX(-100%);
+  animation: shimmer 3s infinite;
+}
+
 /* PREMIUM BUTTON STYLE (Clean & Modern) */
 .button {
   --bg: #1e293b; /* Slate 800 default */
@@ -34,6 +60,8 @@ body {
 .button.red { --bg: #dc2626; } /* Red 600 */
 .button.purple { --bg: #9333ea; } /* Purple 600 */
 .button.slate { --bg: #334155; } /* Slate 700 */
+.button.green { --bg: #16a34a; } /* Green 600 */
+
 
 .button .wrap {
   font-size: 13px;

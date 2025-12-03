@@ -2,7 +2,7 @@
 import React, { useRef, useEffect } from 'react';
 import { Text, Transformer, Circle, Line, Rect, Image as KonvaImage, Group as KonvaGroup } from 'react-konva';
 import useImage from 'use-image';
-import { APDObject, isCrane, isText, isWalkway, isFence, isSchakt, isConstructionTraffic, isPen } from '../../types/index';
+import { APDObject, isCrane, isText, isWalkway, isFence, isSchakt, isConstructionTraffic, isPen, isLineTool } from '../../types/index';
 
 interface DraggableObjectProps {
     obj: APDObject;

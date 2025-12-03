@@ -11,12 +11,14 @@ import { APDObject, LibraryItem, ProjectInfo, DrawingTool, CustomLegendItem } fr
 import { defaultProjectInfo, defaultCustomLegend } from './utils/defaults';
 import { useHistory } from './hooks/useHistory';
 
-import Header from './components/Header';
-import Library from './components/LibraryPanel';
-import Legend from './components/LegendPanel';
-import CanvasPanel from './components/CanvasPanel';
+import Header from './components/header/Header';
+import Library from './components/library/LibraryPanel';
+import Legend from './components/legend/LegendPanel';
+import CanvasPanel from './components/canvas/CanvasPanel';
+import ThreeDView from './components/3d/ThreeDView';
 import { loadAPD } from './utils/apdFileHandler';
 import { handlePDF } from './utils/pdfHandler';
+import { LIBRARY_CATEGORIES as libraryCategories } from './constants/libraryItems';
 
 pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
@@ -165,6 +167,9 @@ const App: React.FC = () => {
                 />
 
                 <div className="flex-1 flex flex-col relative">
+                {show3D ? (
+                    <ThreeDView objects={objects} background={background} libraryCategories={libraryCategories} />
+                ) : (
                     <CanvasPanel 
                         stageRef={stageRef}
                         objects={objects}
@@ -186,6 +191,7 @@ const App: React.FC = () => {
                         canUndo={canUndo}
                         canRedo={canRedo}
                     />
+                )}
                 </div>
                 
                 {!show3D && background && (

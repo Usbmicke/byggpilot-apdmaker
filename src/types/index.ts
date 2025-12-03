@@ -1,6 +1,6 @@
 
 // Allmänna typer
-export type DrawingTool = 'walkway' | 'fence' | 'construction-traffic' | 'pen' | 'text' | 'schakt' | 'crane';
+export type DrawingTool = 'walkway' | 'fence' | 'construction-traffic' | 'pen' | 'text' | 'schakt' | 'crane' | 'building' | 'zone' | 'line';
 
 // Typ-vakter (Type Guards)
 export const isLineTool = (tool: string): tool is 'walkway' | 'fence' | 'construction-traffic' | 'pen' => 
@@ -15,6 +15,9 @@ export const isWalkway = (obj: APDObject): obj is APDObject & { type: 'walkway' 
 export const isFence = (obj: APDObject): obj is APDObject & { type: 'fence' } => obj.type === 'fence';
 export const isConstructionTraffic = (obj: APDObject): obj is APDObject & { type: 'construction-traffic' } => obj.type === 'construction-traffic';
 export const isPen = (obj: APDObject): obj is APDObject & { type: 'pen' } => obj.type === 'pen';
+export const isBuilding = (obj: APDObject): obj is APDObject & { type: 'building' } => obj.type === 'building';
+export const isZone = (obj: APDObject): obj is APDObject & { type: 'zone' } => obj.type === 'zone';
+export const isLine = (obj: APDObject): obj is APDObject & { type: 'line' } => obj.type === 'line';
 
 // Gränssnitt (Interfaces)
 export interface LibraryItem {

@@ -7,6 +7,8 @@ interface BackgroundImage {
     height: number;
 }
 
+const MAX_DIMENSION = 2048; // Max bredd eller höjd för canvas
+
 /**
  * Hanterar en uppladdad PDF-fil, extraherar den första sidan som en bild,
  * och returnerar den som ett BackgroundImage-objekt.
@@ -26,7 +28,12 @@ export const handlePDF = (file: File): Promise<BackgroundImage> => {
                 const pdf = await loadingTask.promise;
                 const page = await pdf.getPage(1); // Hämta första sidan
 
-                const viewport = page.getViewport({ scale: 2.0 }); // Skala upp för bättre kvalitet
+                const originalViewport = page.getViewport({ scale: 1.0 });
+
+                // Beräkna skalan för att passa inom MAX_DIMENSION
+                const scale = Math.min(MAX_DIMENSION / originalViewport.width, MAX_DIMENSION / originalViewport.height, 2.0);
+
+                const viewport = page.getViewport({ scale });
 
                 // Skapa ett canvas-element för att rendera sidan
                 const canvas = document.createElement('canvas');
@@ -47,7 +54,7 @@ export const handlePDF = (file: File): Promise<BackgroundImage> => {
                 await page.render(renderContext).promise;
 
                 // Konvertera canvas till en data-URL (bild)
-                const dataUrl = canvas.toDataURL('image/png');
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.8); // Använd jpeg för bättre komprimering
 
                 resolve({ 
                     url: dataUrl, 

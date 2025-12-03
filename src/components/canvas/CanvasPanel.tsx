@@ -2,7 +2,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Stage, Layer, Image as KonvaImage, Line } from 'react-konva';
 import useImage from 'use-image';
-import { APDObject, LibraryItem, isLineTool, DrawingTool, isTextTool } from '../../types/index';
+import { APDObject, LibraryItem, DrawingTool, isTextTool } from '../../types/index';
 import DraggableObject from '../draggable/DraggableObject';
 import toast from 'react-hot-toast';
 

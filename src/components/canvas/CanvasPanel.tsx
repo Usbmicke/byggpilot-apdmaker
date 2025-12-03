@@ -131,9 +131,9 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
 
     const handleContextMenu = (e: any) => {
         e.evt.preventDefault();
-        if (drawingState && drawingState.points.length > 2) {
+        if (drawingState && drawingState.points.length >= 4) {
             onSnapshot();
-            addObject(drawingState.item, {x:0, y:0}, { points: tempLinePoints });
+            addObject(drawingState.item, {x:0, y:0}, { points: drawingState.points });
             setDrawingState(null);
             setTempLinePoints([]);
         } else {

@@ -113,6 +113,7 @@ const App: React.FC = () => {
                 const img = new Image();
                 img.onload = () => setBackground({ url, width: img.width, height: img.height });
                 img.onerror = () => toast.error('Kunde inte ladda bildfilen.');
+                img.src = url;
             } else if (file.type === 'application/pdf') {
                 const bg = await handlePDF(file);
                 setBackground(bg);

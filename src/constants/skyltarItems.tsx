@@ -13,7 +13,6 @@ const ParkeringForbjudenSVG = `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org
 const UtrymningspilIcon = () => <SvgIcon svg={UtrymningspilSVG} />;
 const VarningIcon = () => <SvgIcon svg={VarningSVG} />;
 const ForbudIcon = () => <SvgIcon svg={ForbudSVG} />;
-const PabudIcon = () => <img src="/assets/ikoner/ppe.png" alt="PPE" className="w-full h-full object-cover" />;
 const ParkeringForbjudenIcon = () => <SvgIcon svg={ParkeringForbjudenSVG} />;
 
 // --- Category Export ---
@@ -24,6 +23,5 @@ export const skyltarCategory: { name: string; items: LibraryItem[] } = {
          { type: 'varning', name: 'Varning', icon: <VarningIcon />, initialProps: { iconUrl: createIcon(VarningSVG) } },
          { type: 'forbud', name: 'Tillträde förbjudet', icon: <ForbudIcon />, initialProps: { iconUrl: createIcon(ForbudSVG) } },
          { type: 'parkering-forbjuden', name: 'Parkering förbjuden', icon: <ParkeringForbjudenIcon />, initialProps: { iconUrl: createIcon(ParkeringForbjudenSVG) } },
-         { type: 'pabud', name: 'Personlig Skyddsutr.', icon: <PabudIcon />, initialProps: { iconUrl: '/assets/ikoner/ppe.png' } },
     ]
 };

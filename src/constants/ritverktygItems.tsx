@@ -1,10 +1,10 @@
 
 import React from 'react';
-import { LibraryItem } from '../types/index';
+import { LibraryItem } from '../../types/index';
 import { createIcon, SvgIcon } from './itemHelpers';
 
 // --- SVG Definitions ---
-const StaketSVG = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#D500F9" stroke-width="3" stroke-linecap="round"><path d="M2 12h4m4 0h4m4 0h4m4 0h4m4 0h4m4 0h4m4 0h4m4 0h4m4 0h4m4 0h4"/></svg>`;
+const StaketSVG = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#D500F9" stroke-width="3" stroke-linecap="round"><path d="M2 12h4m4 0h4m4 0h4m4 0h4m4 0h4m4 0h4m4 0h4m4 0h4m4 0h4"/></svg>`;
 const GangvagSVG = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#00E5FF" stroke-width="3" stroke-linecap="round"><path d="M2 12h2M6 12h2M10 12h2M14 12h2M18 12h2"/></svg>`;
 const ByggtrafikSVG = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#FFD600" stroke-width="4" stroke-linecap="round"><path d="M2 12h20"/></svg>`;
 const SchaktSVG = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="rgba(255, 23, 68, 0.2)" stroke="#FF1744" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>`;

@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState } from 'react';
-import { APDObject, CustomLegendItem } from '../types/index';
-import { LIBRARY_CATEGORIES } from '../constants/libraryItems';
+import { APDObject, CustomLegendItem } from '../../types/index';
+import { LIBRARY_CATEGORIES } from '../../constants/libraryItems';
 
 const findIcon = (type: string) => {
     for (const category of LIBRARY_CATEGORIES) {

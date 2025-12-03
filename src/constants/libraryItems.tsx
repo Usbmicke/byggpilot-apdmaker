@@ -1,5 +1,5 @@
 
-import { LibraryItem } from '../types/index';
+import { LibraryItem } from '../../types/index';
 import { etableringCategory } from './etableringItems';
 import { logistikCategory } from './logistikItems';
 import { sakerhetCategory } from './sakerhetItems';

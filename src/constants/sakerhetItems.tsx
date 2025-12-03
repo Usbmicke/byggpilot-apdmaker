@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { LibraryItem } from '../types/index';
+import { LibraryItem } from '../../types/index';
 import { createIcon, SvgIcon } from './itemHelpers';
 
 // --- SVG Definitions ---

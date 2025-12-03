@@ -2,8 +2,8 @@
 import React, { useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { APDObject, CustomLegendItem, ProjectInfo } from '../types/index';
-import '../src/styles/ThreeDButton.css';
-import '../src/styles/SparkleButton.css';
+import '../styles/ThreeDButton.css';
+import '../styles/SparkleButton.css';
 
 interface HeaderProps {
     stageRef: React.RefObject<any>;
@@ -108,7 +108,7 @@ const Header: React.FC<HeaderProps> = ({
     };
 
     return (
-        <header className="bg-slate-800 border-b border-slate-700 p-3 flex items-center justify-between z-20 relative shadow-md h-[72px]">
+        <header className="bg-slate-800 border-b border-slate-700 p-3 flex items-center justify-between z-20 relative shadow-md flex-wrap">
              <div className="flex items-center gap-3">
                  <button onClick={toggleLibrary} className="md:hidden p-2 rounded-md hover:bg-slate-700"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg></button>
                  <img src="/assets/ikoner/Byggpilotlogga.png" alt="ByggPilot Logotyp" className="h-10" />
@@ -117,7 +117,7 @@ const Header: React.FC<HeaderProps> = ({
 
             <div className="flex-1 flex items-center justify-center gap-2"></div>
 
-            <div className="flex items-center justify-end gap-3">
+            <div className="flex items-center justify-end gap-3 flex-wrap">
                  <button onClick={handleToggle3D} className="gradient-button">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
                     <span className="gradient-text">{show3D ? '2D-vy' : 'BYGG I 3D'}</span>

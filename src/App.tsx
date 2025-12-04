@@ -168,7 +168,15 @@ const App: React.FC = () => {
 
                 <div className="flex-1 flex flex-col relative">
                 {show3D ? (
-                    <ThreeDView objects={objects} background={background} libraryCategories={libraryCategories} />
+                    <ThreeDView 
+                        objects={objects} 
+                        background={background} 
+                        libraryCategories={libraryCategories}
+                        selectedId={selectedId}
+                        onSelect={setSelectedId}
+                        onObjectChange={updateObject}
+                        onSnapshot={snapshot}
+                    />
                 ) : (
                     <CanvasPanel 
                         stageRef={stageRef}

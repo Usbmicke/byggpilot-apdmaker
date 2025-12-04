@@ -1,7 +1,7 @@
 
 import React, { Suspense, useMemo, useRef, useCallback } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { Sky, OrbitControls, Grid, Plane, useTexture, TransformControls } from '@react-three/drei';
+import { Sky, OrbitControls, Grid, Plane, useTexture, TransformControls, Billboard } from '@react-three/drei';
 import * as THREE from 'three';
 import { APDObject, LibraryCategory, isBuilding, isLine, isSchakt } from '../../types';
 
@@ -14,14 +14,14 @@ const ThreeDObject = React.memo(({ obj, background, item, onSelect, objectRef }:
     const position: [number, number, number] = [(obj.x - bgWidth / 2) * SCALE_FACTOR, 0, (obj.y - bgHeight / 2) * SCALE_FACTOR];
     
     const handleClick = (e: any) => {
-        e.stopPropagation(); // Stoppar klicket från att nå canvas och avmarkera direkt
+        e.stopPropagation();
         onSelect();
     };
 
     const rotationY = -THREE.MathUtils.degToRad(obj.rotation || 0);
 
     if (isBuilding(obj) || item?.name.toLowerCase().includes('bod')) {
-        position[1] = 1.5; // Höjd för byggnader
+        position[1] = 1.5;
         return <mesh ref={objectRef} position={position} rotation={[0, rotationY, 0]} castShadow onClick={handleClick}><boxGeometry args={[5, 3, 2.5]} /><meshStandardMaterial color="#d1d5db" /></mesh>;
     }
 
@@ -39,8 +39,22 @@ const ThreeDObject = React.memo(({ obj, background, item, onSelect, objectRef }:
         return <mesh ref={objectRef} position={position} rotation={[0, rotationY, 0]} onClick={handleClick}><boxGeometry args={[width, 0.1, height]} /><meshStandardMaterial color={obj.fill || '#a1662f'} transparent opacity={0.7} /></mesh>;
     }
 
+    // Fallback för att rendera en ikon som en skylt (Billboard)
+    if (item?.icon) {
+        const texture = useTexture(item.icon);
+        position[1] = 1.5; // Sätt en standardhöjd för skylten
+        return (
+            <Billboard ref={objectRef} position={position} onClick={handleClick}>
+                <Plane args={[2, 2]}>
+                    <meshStandardMaterial map={texture} transparent alphaTest={0.5} />
+                </Plane>
+            </Billboard>
+        );
+    }
+
     return null;
 });
+
 
 // Huvudkomponent för 3D-vyn med fullständig interaktivitet
 const ThreeDView = ({ objects, background, libraryCategories, selectedId, onSelect, onObjectChange, onSnapshot }: 
@@ -52,7 +66,6 @@ const ThreeDView = ({ objects, background, libraryCategories, selectedId, onSele
     const libraryItems = useMemo(() => new Map(libraryCategories.flatMap(cat => cat.items).map(item => [item.type, item])), [libraryCategories]);
     const selectedObject = useMemo(() => objects.find(obj => obj.id === selectedId), [objects, selectedId]);
 
-    // Hanterar förändringar från TransformControls
     const handleTransform = useCallback(() => {
         if (!transformRef.current || !selectedId) return;
         const obj = transformRef.current.object as THREE.Object3D;
@@ -69,19 +82,24 @@ const ThreeDView = ({ objects, background, libraryCategories, selectedId, onSele
         
         onObjectChange(selectedId, newAttrs);
 
-    }, [selectedId, onObjectChange, background, SCALE_FACTOR]);
+    }, [selectedId, onObjectChange, background]);
+
+    const BackgroundPlane = ({ background }: { background: { url: string; width: number; height: number; } | null }) => {
+        if (!background) return null;
+        const texture = useTexture(background.url);
+        const aspect = background.width / background.height;
+        return <Plane args={[100, 100 / aspect]} position={[0, -0.01, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow><meshStandardMaterial map={texture} /></Plane>;
+    };
 
     return (
         <div className="w-full h-full absolute top-0 left-0">
             <Canvas shadows camera={{ position: [0, 60, 80], fov: 60 }} onClick={() => onSelect(null)}>
-                {/* Miljö & Belysning */}
                 <Sky sunPosition={[100, 20, 100]} />
                 <ambientLight intensity={1.5} />
                 <directionalLight position={[100, 100, 50]} intensity={2.5} castShadow shadow-mapSize-width={2048} shadow-mapSize-height={2048} />
                 
                 <Suspense fallback={null}>
                     <BackgroundPlane background={background} />
-                    {/* Mappar och renderar alla objekt */}
                     {objects.map(obj => (
                         <ThreeDObject
                             key={obj.id}
@@ -94,14 +112,13 @@ const ThreeDView = ({ objects, background, libraryCategories, selectedId, onSele
                     ))}
                 </Suspense>
 
-                {/* Visar TransformControls för det valda objektet */}
                 {selectedId && objectRefs.current.has(selectedId) && (
                      <TransformControls
                         ref={transformRef}
                         object={objectRefs.current.get(selectedId)}
-                        onMouseDown={onSnapshot} // Skapa en "snapshot" för ångra-funktionen när man börjar dra
-                        onObjectChange={handleTransform} // Uppdatera kontinuerligt vid ändring
-                        mode={selectedObject && isLine(selectedObject) ? 'scale' : 'translate'} // Byt läge för linjer
+                        onMouseDown={onSnapshot}
+                        onObjectChange={handleTransform}
+                        mode={selectedObject && isLine(selectedObject) ? 'scale' : 'translate'}
                     />
                 )}
 

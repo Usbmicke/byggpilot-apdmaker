@@ -1,5 +1,9 @@
 
-import { pdfjs } from 'react-pdf';
+import * as pdfjs from 'pdfjs-dist';
+
+// Sätt en direkt, statisk sökväg till worker-filen som har kopierats till /public.
+// Detta är den mest robusta och felsäkra metoden.
+pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
 
 interface BackgroundImage {
     url: string;

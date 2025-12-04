@@ -2,7 +2,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import toast, { Toaster } from 'react-hot-toast';
-import { pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
@@ -17,8 +16,6 @@ import CanvasPanel from './components/canvas/CanvasPanel';
 
 import { loadAPD } from './utils/apdFileHandler';
 import { handlePDF } from './utils/pdfHandler';
-
-pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
 
 const App: React.FC = () => {
     const stageRef = useRef<any>(null);
@@ -46,6 +43,16 @@ const App: React.FC = () => {
     const [isLibraryOpen, setIsLibraryOpen] = useState(true);
     const [isLegendOpen, setIsLegendOpen] = useState(true);
     const [show3D, setShow3D] = useState(false); 
+
+    useEffect(() => {
+        const backgroundUrl = background?.url;
+        if (backgroundUrl && backgroundUrl.startsWith('blob:')) {
+            return () => {
+                URL.revokeObjectURL(backgroundUrl);
+            };
+        }
+    }, [background?.url]);
+
 
     const removeObjects = useCallback((ids: string[]) => {
         if (ids.length === 0) return;
@@ -125,7 +132,6 @@ const App: React.FC = () => {
                     setCustomLegendItems(defaultCustomLegend);
                     setSelectedIds([]);
                     toast.success('Bilden har laddats!');
-                    URL.revokeObjectURL(url); 
                 };
                 img.onerror = () => {
                     toast.error('Kunde inte ladda bildfilen.');

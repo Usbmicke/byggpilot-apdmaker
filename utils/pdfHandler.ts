@@ -1,15 +1,20 @@
 
 import { pdfjs } from 'react-pdf';
 
+// ALL WORKER-KONFIGURATION ÄR BORTTAGEN HÄRIFRÅN FÖR ATT FÖRHINDRA KONFLIKTER.
+// Konfigurationen kommer att hanteras centralt och korrekt i App.tsx.
+
 interface BackgroundImage {
     url: string;
     width: number;
     height: number;
 }
 
+const TARGET_OUTPUT_WIDTH = 3000; // Önskad bredd i pixlar för den genererade bilden
+
 /**
  * Hanterar en uppladdad PDF-fil, extraherar den första sidan som en bild,
- * och returnerar den som ett BackgroundImage-objekt.
+ * skalar den till en konsekvent storlek, och returnerar den som ett BackgroundImage-objekt.
  */
 export const handlePDF = (file: File): Promise<BackgroundImage> => {
     return new Promise((resolve, reject) => {
@@ -26,9 +31,10 @@ export const handlePDF = (file: File): Promise<BackgroundImage> => {
                 const pdf = await loadingTask.promise;
                 const page = await pdf.getPage(1); // Hämta första sidan
 
-                const viewport = page.getViewport({ scale: 2.0 }); // Skala upp för bättre kvalitet
+                const originalViewport = page.getViewport({ scale: 1.0 });
+                const scale = TARGET_OUTPUT_WIDTH / originalViewport.width;
+                const viewport = page.getViewport({ scale });
 
-                // Skapa ett canvas-element för att rendera sidan
                 const canvas = document.createElement('canvas');
                 const context = canvas.getContext('2d');
                 if (!context) {
@@ -38,7 +44,6 @@ export const handlePDF = (file: File): Promise<BackgroundImage> => {
                 canvas.height = viewport.height;
                 canvas.width = viewport.width;
 
-                // Rendera PDF-sidan till canvas
                 const renderContext = {
                     canvasContext: context,
                     viewport: viewport,
@@ -46,7 +51,6 @@ export const handlePDF = (file: File): Promise<BackgroundImage> => {
 
                 await page.render(renderContext).promise;
 
-                // Konvertera canvas till en data-URL (bild)
                 const dataUrl = canvas.toDataURL('image/png');
 
                 resolve({ 

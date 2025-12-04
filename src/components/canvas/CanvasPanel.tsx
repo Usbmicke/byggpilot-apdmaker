@@ -73,7 +73,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
 }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const trRef = useRef<any>(null);
-    const [bgImage] = useImage(background?.url || '');
+    const [bgImage] = useImage(background?.url || '', 'anonymous');
     const [size, setSize] = useState({ width: 0, height: 0 });
     const [isDragOver, setIsDragOver] = useState(false);
     const [tempLinePoints, setTempLinePoints] = useState<number[]>([]);
@@ -95,7 +95,16 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
 
     useEffect(() => {
         if (background && bgImage && stageRef.current && size.width > 0) {
-            const scale = Math.min(size.width / background.width, size.height / background.height) * 0.95;
+            const stage = stageRef.current;
+            const imageAspectRatio = background.width / background.height;
+            const containerAspectRatio = size.width / size.height;
+            let scale;
+            if (imageAspectRatio > containerAspectRatio) {
+                scale = size.width / background.width;
+            } else {
+                scale = size.height / background.height;
+            }
+            scale *= 0.95;
             stage.scale({ x: scale, y: scale });
             stage.position({ x: (size.width - background.width * scale) / 2, y: (size.height - background.height * scale) / 2 });
         }
@@ -177,17 +186,23 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     };
 
     const handleStageMouseUp = (e: any) => {
-        if (selectionBox.visible) {
+        if (selectionBox.visible && selectionRectRef.current) {
             const stage = stageRef.current;
             const box = selectionRectRef.current.getClientRect();
-            const newSelectedIds = objects.map(obj => {
+            const newSelectedIds = objects.reduce((acc, obj) => {
                 const node = stage.findOne('.' + obj.id);
-                if (!node) return null; 
-                const objBox = node.getClientRect();
-                const isIntersecting = box.x < objBox.x + objBox.width && box.x + box.width > objBox.x &&
-                                     box.y < objBox.y + objBox.height && box.y + box.height > objBox.y;
-                return isIntersecting ? obj.id : null;
-            }).filter((id): id is string => id !== null); 
+                if (node) {
+                    const objBox = node.getClientRect();
+                    const isIntersecting = !(box.x > objBox.x + objBox.width ||
+                                           box.x + box.width < objBox.x ||
+                                           box.y > objBox.y + objBox.height ||
+                                           box.y + box.height < objBox.y);
+                    if (isIntersecting) {
+                        acc.push(obj.id);
+                    }
+                }
+                return acc;
+            }, [] as string[]);
     
             const finalSelection = e.evt.shiftKey 
                 ? [...new Set([...selectedIds, ...newSelectedIds])]
@@ -339,7 +354,9 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                         draggable={selectedIds.length === 0 && !drawingState && !editingText}
                     >
                         <Layer>
-                            <KonvaImage image={bgImage} listening={false} x={0} y={0} width={background.width} height={background.height} />
+                            {bgImage && background && (
+                                <KonvaImage image={bgImage} x={0} y={0} width={background.width} height={background.height} listening={false} />
+                            )}
                         </Layer>
                         <Layer>
                             {tempLinePoints.length > 0 && drawingState && (
@@ -390,18 +407,19 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                                     });
                                 }}
                             />
-                            <Layer ref={selectionRectRef}>
-                                <Rect
-                                    fill="rgba(0, 123, 255, 0.2)"
-                                    stroke="rgba(0, 123, 255, 0.6)"
-                                    strokeWidth={1}
-                                    visible={selectionBox.visible}
-                                    x={selectionBox.x}
-                                    y={selectionBox.y}
-                                    width={selectionBox.width}
-                                    height={selectionBox.height}
-                                />
-                            </Layer>
+                            {/* KORRIGERAD STRUKTUR: Rect ligger nu direkt i Layer */}
+                            <Rect
+                                ref={selectionRectRef} 
+                                fill="rgba(0, 123, 255, 0.2)"
+                                stroke="rgba(0, 123, 255, 0.6)"
+                                strokeWidth={1}
+                                visible={selectionBox.visible}
+                                x={selectionBox.x}
+                                y={selectionBox.y}
+                                width={selectionBox.width}
+                                height={selectionBox.height}
+                                listening={false} // Rektangeln ska inte fånga musklick
+                            />
                         </Layer>
                     </Stage>
                     {editingText && (

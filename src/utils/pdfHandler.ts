@@ -1,9 +1,9 @@
 
 import * as pdfjs from 'pdfjs-dist';
 
-// Sätt en direkt, statisk sökväg till worker-filen som har kopierats till /public.
-// Detta är den mest robusta och felsäkra metoden.
-pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+// Dynamiskt sätt sökvägen till workern baserat på den installerade paketsökvägen.
+// Detta är den rekommenderade metoden för Vite.
+pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.js', import.meta.url).toString();
 
 interface BackgroundImage {
     url: string;

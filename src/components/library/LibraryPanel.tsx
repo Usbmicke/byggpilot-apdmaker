@@ -1,34 +1,45 @@
 
 import React, { useState } from 'react';
+import { useDrag } from 'react-dnd';
 import { LIBRARY_CATEGORIES } from '../../constants/libraryItems';
-import { LibraryItem, isLineTool } from '../../types/index';
+import { LibraryItem, isLineTool, DrawingTool } from '../../types/index';
 
-interface LibraryItemProps {
+export const ItemTypes = {
+    LIBRARY_ITEM: 'library-item',
+};
+
+interface DraggableLibraryItemProps {
     item: LibraryItem;
     onSelect: (item: LibraryItem) => void;
 }
 
-const LibraryItemComponent: React.FC<LibraryItemProps> = ({ item, onSelect }) => {
-    
-    // Allow dragging for ALL items (removed isDrawable check)
-    const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
-        e.dataTransfer.setData('application/json', JSON.stringify(item));
-        e.dataTransfer.effectAllowed = 'copy';
-    };
+const DraggableLibraryItem: React.FC<DraggableLibraryItemProps> = ({ item, onSelect }) => {
+    const [{ isDragging }, drag] = useDrag(() => ({
+        type: ItemTypes.LIBRARY_ITEM,
+        item: item,
+        collect: (monitor) => ({
+            isDragging: !!monitor.isDragging(),
+        }),
+    }));
 
     const handleClick = () => {
         onSelect(item);
-    }
+    };
+
+    // KORRIGERING: Tydligare title-text för att förklara klick vs. dra
+    const title = isLineTool(item.type) 
+        ? `Klicka för att börja rita ${item.name}`
+        : `Dra ut ${item.name} på ritningen`;
 
     return (
         <div
-            draggable={true}
-            onDragStart={handleDragStart}
+            ref={drag}
             onClick={handleClick}
-            className="flex items-center p-3 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700 hover:border-slate-500 shadow-sm cursor-pointer active:bg-slate-600"
-            title={`Klicka för att välja ${item.name}`}
+            className="flex items-center p-3 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700 hover:border-blue-500 shadow-sm cursor-pointer active:bg-slate-600"
+            style={{ opacity: isDragging ? 0.5 : 1 }}
+            title={title}
         >
-            <div className="w-8 h-8 mr-3 flex items-center justify-center text-slate-400 bg-slate-700 rounded-md flex-shrink-0 pointer-events-none select-none">
+            <div className="w-8 h-8 mr-3 flex items-center justify-center text-slate-400 bg-slate-900 rounded-md flex-shrink-0 pointer-events-none select-none">
                 {item.icon}
             </div>
             <span className="text-sm font-medium text-slate-300 pointer-events-none select-none">{item.name}</span>
@@ -51,9 +62,9 @@ const Category: React.FC<{ name: string; items: LibraryItem[]; onSelect: (item: 
             {isOpen && (
                 <div className="pt-2 space-y-2">
                     {items.map(item => (
-                        <LibraryItemComponent 
-                            key={item.type} 
-                            item={item} 
+                        <DraggableLibraryItem
+                            key={item.type}
+                            item={item}
                             onSelect={onSelect}
                         />
                     ))}
@@ -64,46 +75,41 @@ const Category: React.FC<{ name: string; items: LibraryItem[]; onSelect: (item: 
 };
 
 interface LibraryPanelProps {
-    onItemSelect: (item: LibraryItem) => void;
     isOpen: boolean;
-    onClose: () => void;
+    setPendingItem: (item: LibraryItem | null) => void;
+    setDrawingState: (state: { type: DrawingTool, points: number[], item: LibraryItem } | null) => void;
 }
 
-const LibraryPanel: React.FC<LibraryPanelProps> = ({ onItemSelect, isOpen, onClose }) => {
+const LibraryPanel: React.FC<LibraryPanelProps> = ({ isOpen, setPendingItem, setDrawingState }) => {
+    const handleItemSelect = (item: LibraryItem) => {
+        if (isLineTool(item.type)) {
+            setDrawingState({ type: item.type, points: [], item: item });
+            setPendingItem(null);
+            // KORRIGERING: Ge omedelbar feedback genom att ändra muspekaren globalt
+            document.body.style.cursor = 'crosshair';
+        } else {
+            setPendingItem(item);
+            setDrawingState(null);
+            document.body.style.cursor = 'default';
+        }
+    };
+
     return (
-        <>
-            {/* Bakgrund för mobil när menyn är öppen */}
-            <div
-                className={`md:hidden fixed top-[72px] inset-x-0 bottom-0 bg-black bg-opacity-50 z-20 transition-opacity ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-                onClick={onClose}
-                aria-hidden="true"
-            />
-            
-            <aside 
-                className={`w-80 max-w-full bg-slate-900 text-slate-300 p-4 overflow-y-auto flex-shrink-0 transition-transform duration-300 ease-in-out border-r border-slate-700
-                            fixed top-[72px] left-0 bottom-0 z-30 shadow-2xl
-                            md:static md:h-auto md:w-64 md:translate-x-0 md:shadow-none
-                            ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
-            >
-                <div className="flex justify-between items-center mb-4 md:hidden border-b border-slate-700 pb-2">
-                    <h2 className="font-bold text-lg text-slate-200">Bibliotek</h2>
-                    <button onClick={onClose} className="p-1 rounded-md hover:bg-slate-700" aria-label="Stäng bibliotek">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                </div>
-                 <h2 className="hidden md:block text-xl font-bold text-slate-100 mb-4">Bibliotek</h2>
-                {LIBRARY_CATEGORIES.map(category => (
-                    <Category 
-                        key={category.name} 
-                        name={category.name} 
-                        items={category.items} 
-                        onSelect={onItemSelect} 
-                    />
-                ))}
-                {/* Utfyllnad i botten för att säkerställa scrollning */}
-                <div className="h-20 md:hidden"></div>
-            </aside>
-        </>
+        <aside 
+             className={`w-80 max-w-full bg-slate-900 text-slate-300 p-4 overflow-y-auto flex-shrink-0 transition-transform duration-300 ease-in-out border-r border-slate-700
+                        md:static md:h-auto md:w-64 md:translate-x-0 md:shadow-none
+                        ${isOpen ? 'translate-x-0' : '-translate-x-full md:w-0 md:p-0 md:border-r-0'}`}
+        >
+             <h2 className="text-xl font-bold text-slate-100 mb-4 whitespace-nowrap">Symbolbibliotek</h2>
+            {LIBRARY_CATEGORIES.map(category => (
+                <Category 
+                    key={category.name} 
+                    name={category.name} 
+                    items={category.items} 
+                    onSelect={handleItemSelect}
+                />
+            ))}
+        </aside>
     );
 };
 

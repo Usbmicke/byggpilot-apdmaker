@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState } from 'react';
-import { APDObject, CustomLegendItem } from '../../types/index';
+import { APDObject, CustomLegendItem, ProjectInfo } from '../../types/index'; // KORRIGERING: Importerar ProjectInfo
 import { LIBRARY_CATEGORIES } from '../../constants/libraryItems';
 
 const findIcon = (type: string) => {
@@ -16,30 +16,33 @@ interface LegendPanelProps {
     customItems: CustomLegendItem[];
     setCustomItems: React.Dispatch<React.SetStateAction<CustomLegendItem[]>>;
     isOpen: boolean;
-    onClose: () => void;
+    projectInfo: ProjectInfo; // KORRIGERING: Tar emot projectInfo
+    setProjectInfo: (info: ProjectInfo) => void; // KORRIGERING: Tar emot setProjectInfo
+    // KORRIGERING: `onClose` är borttagen då panelen styrs helt från App.tsx via `isOpen`
 }
 
-const LegendPanel: React.FC<LegendPanelProps> = ({ objects, customItems, setCustomItems, isOpen, onClose }) => {
+const LegendPanel: React.FC<LegendPanelProps> = ({ objects, customItems, setCustomItems, isOpen, projectInfo, setProjectInfo }) => {
     const [newItemName, setNewItemName] = useState('');
-    const [newItemCount, setNewItemCount] = useState<number | ''>(1);
+    const [newItemColor, setNewItemColor] = useState('#ffffff'); // Exempel: Lägg till färgval
 
     const legendData = useMemo(() => {
         const counts: { [key: string]: { count: number; icon: React.ReactNode | null; type: string } } = {};
         objects.forEach(obj => {
-            if (counts[obj.label]) {
-                counts[obj.label].count++;
+            // KORRIGERING: Använder `obj.item.name` istället för `obj.label` som inte existerar.
+            const name = obj.item.name;
+            if (counts[name]) {
+                counts[name].count++;
             } else {
-                counts[obj.label] = { count: 1, icon: findIcon(obj.type), type: obj.type };
+                counts[name] = { count: 1, icon: findIcon(obj.type), type: obj.type };
             }
         });
-        return Object.entries(counts).map(([label, data]) => ({ label, ...data }));
+        return Object.entries(counts).map(([name, data]) => ({ name, ...data }));
     }, [objects]);
 
     const handleAddCustomItem = () => {
-        if (newItemName.trim() && newItemCount && newItemCount > 0) {
-            setCustomItems(prev => [...prev, { id: `custom-${Date.now()}`, name: newItemName, count: newItemCount }]);
+        if (newItemName.trim()) {
+            setCustomItems(prev => [...prev, { id: `custom-${Date.now()}`, name: newItemName, color: newItemColor }]);
             setNewItemName('');
-            setNewItemCount(1);
         }
     };
     
@@ -47,95 +50,98 @@ const LegendPanel: React.FC<LegendPanelProps> = ({ objects, customItems, setCust
         setCustomItems(prev => prev.filter(item => item.id !== id));
     };
 
+    const handleInfoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setProjectInfo({ ...projectInfo, [e.target.name]: e.target.value });
+    }
+
     return (
-        <>
-            {/* Bakgrund för mobil */}
-            <div
-                className={`md:hidden fixed inset-0 bg-black bg-opacity-50 z-20 transition-opacity ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-                onClick={onClose}
-                aria-hidden="true"
-            />
-            <aside 
-                id="legend-panel" 
-                className={`
-                    bg-slate-900 text-slate-300
-                    transition-[width,transform] duration-300 ease-in-out
-                    fixed top-0 right-0 h-full z-30 shadow-2xl
-                    md:static md:h-auto md:shadow-none md:border-slate-700
-                    overflow-hidden flex-shrink-0
-                    ${isOpen 
-                        ? 'translate-x-0 w-80 md:w-80 md:border-l border-slate-700' 
-                        : 'translate-x-full md:translate-x-0 md:w-0 md:border-l-0'
-                    }
-                `}
-            >
-                <div className="w-80 h-full p-4 overflow-y-auto">
-                    <div className="flex justify-between items-center mb-4 md:hidden border-b pb-2 border-slate-700">
-                        <h2 className="text-lg font-bold text-slate-200">Förteckning</h2>
-                        <button onClick={onClose} className="p-1 rounded-md hover:bg-slate-700" aria-label="Stäng förteckning">
-                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
+        <aside 
+            id="legend-panel" 
+            className={`
+                bg-slate-900 text-slate-300
+                transition-[width,transform] duration-300 ease-in-out
+                h-full z-20
+                md:static md:h-auto md:shadow-none md:border-slate-700
+                overflow-hidden flex-shrink-0
+                ${isOpen 
+                    ? 'translate-x-0 w-80 md:w-80 md:border-l' 
+                    : 'translate-x-full md:translate-x-0 md:w-0 md:border-l-0'
+                }
+            `}
+        >
+            <div className="w-80 h-full p-4 overflow-y-auto flex flex-col">
+                <h2 className="text-xl font-bold border-b border-slate-700 pb-2 mb-4 text-slate-100 whitespace-nowrap">Projektinformation</h2>
+                
+                {/* KORRIGERING: Inmatningsfält för Projektinformation */}
+                <div className="space-y-3 mb-6">
+                    <div>
+                        <label htmlFor="company" className="text-sm font-medium text-slate-400">Företag</label>
+                        <input type="text" name="company" id="company" value={projectInfo.company} onChange={handleInfoChange} className="mt-1 p-2 bg-slate-700 border border-slate-600 rounded-lg text-sm w-full text-slate-200 placeholder:text-slate-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
                     </div>
-                    <h2 className="hidden md:block text-xl font-bold border-b border-slate-700 pb-2 mb-4 text-slate-100 whitespace-nowrap">Förteckning / Legend</h2>
-                    
-                    <div className="space-y-2 mb-6">
-                        {legendData.map(({ label, count, icon }) => (
-                            <div key={label} className="flex items-center justify-between p-2 bg-slate-800 rounded-lg border border-slate-700 shadow-sm">
-                                <div className="flex items-center min-w-0">
-                                    <div className="w-6 h-6 mr-3 text-slate-400 flex-shrink-0">{icon}</div>
-                                    <span className="text-sm font-medium text-slate-300 truncate" title={label}>{label}</span>
-                                </div>
-                                <span className="text-sm font-semibold text-slate-200 ml-2 whitespace-nowrap">{count} st</span>
-                            </div>
-                        ))}
+                    <div>
+                        <label htmlFor="projectName" className="text-sm font-medium text-slate-400">Projektnamn</label>
+                        <input type="text" name="projectName" id="projectName" value={projectInfo.projectName} onChange={handleInfoChange} className="mt-1 p-2 bg-slate-700 border border-slate-600 rounded-lg text-sm w-full text-slate-200 placeholder:text-slate-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
                     </div>
+                    <div>
+                        <label htmlFor="projectId" className="text-sm font-medium text-slate-400">Projekt-ID</label>
+                        <input type="text" name="projectId" id="projectId" value={projectInfo.projectId} onChange={handleInfoChange} className="mt-1 p-2 bg-slate-700 border border-slate-600 rounded-lg text-sm w-full text-slate-200 placeholder:text-slate-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
+                    </div>
+                </div>
 
-                    <div className="space-y-2">
-                        {customItems.map(item => (
-                            <div key={item.id} className="flex items-center justify-between p-2 bg-slate-800 rounded-lg border border-slate-600 shadow-sm">
-                                <div className="flex items-center min-w-0">
-                                   <div className="w-6 h-6 mr-3 text-slate-400 flex-shrink-0">
-                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" /></svg>
-                                   </div>
-                                   <span className="text-sm font-medium text-slate-300 truncate" title={item.name}>{item.name}</span>
-                                </div>
-                                <div className="flex items-center">
-                                    <span className="text-sm font-semibold text-slate-200 ml-2 whitespace-nowrap">{item.count} st</span>
-                                    <button onClick={() => handleRemoveCustomItem(item.id)} className="ml-2 text-red-500 hover:text-red-700 font-bold" aria-label="Ta bort anpassat objekt">&times;</button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                <h2 className="text-xl font-bold border-y border-slate-700 py-2 my-4 text-slate-100 whitespace-nowrap">Symbolförteckning</h2>
 
-                    <div className="mt-6 border-t border-slate-700 pt-4">
-                         <h3 className="text-md font-semibold mb-3 text-slate-100 whitespace-nowrap">Lägg till egen rad</h3>
-                         <div className="flex flex-col space-y-2">
-                            <input 
-                                type="text" 
-                                value={newItemName}
-                                onChange={e => setNewItemName(e.target.value)}
-                                placeholder="Objektnamn"
-                                className="p-2 bg-slate-700 border border-slate-600 rounded-lg text-sm w-full text-slate-200 placeholder:text-slate-400 focus:ring-1 focus:ring-slate-500 focus:border-slate-500"
-                            />
-                            <div className="flex items-center space-x-2">
-                                <input 
-                                    type="number"
-                                    value={newItemCount}
-                                    onChange={e => setNewItemCount(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
-                                    min="1"
-                                    placeholder="Antal"
-                                    className="p-2 bg-slate-700 border border-slate-600 rounded-lg text-sm w-full text-slate-200 placeholder:text-slate-400 focus:ring-1 focus:ring-slate-500 focus:border-slate-500"
-                                />
+                {/* KORRIGERING: Korrekt mappning med `item.name` */}
+                <div className="space-y-2 mb-6">
+                    {legendData.map(({ name, count, icon }) => (
+                        <div key={name} className="flex items-center justify-between p-2 bg-slate-800 rounded-lg border border-slate-700 shadow-sm">
+                            <div className="flex items-center min-w-0">
+                                <div className="w-6 h-6 mr-3 text-slate-400 flex-shrink-0">{icon}</div>
+                                <span className="text-sm font-medium text-slate-300 truncate" title={name}>{name}</span>
                             </div>
-                            <button onClick={handleAddCustomItem} className="bg-slate-600 hover:bg-slate-500 text-white font-medium py-2 px-3 rounded-lg text-sm shadow-sm hover:shadow transition-all w-full justify-center flex items-center">
+                            <span className="text-sm font-semibold text-slate-200 ml-2 whitespace-nowrap">{count} st</span>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="space-y-2">
+                    {customItems.map(item => (
+                        <div key={item.id} className="flex items-center justify-between p-2 bg-slate-800 rounded-lg border border-slate-700 shadow-sm">
+                             <div style={{width: 12, height: 12, backgroundColor: item.color, marginRight: 8, borderRadius: '50%', flexShrink: 0}}></div>
+                             <span className="text-sm font-medium text-slate-300 truncate flex-1" title={item.name}>{item.name}</span>
+                            <button onClick={() => handleRemoveCustomItem(item.id)} className="ml-2 p-1 text-red-500 hover:text-red-400 rounded-full hover:bg-slate-700" aria-label="Ta bort anpassad rad"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                        </div>
+                    ))}
+                </div>
+
+                 {/* KORRIGERING: Förbättrat gränssnitt för att lägga till egna rader */}
+                 <div className="mt-auto border-t border-slate-700 pt-4">
+                     <h3 className="text-md font-semibold mb-3 text-slate-100 whitespace-nowrap">Lägg till egen rad i förteckning</h3>
+                     <div className="flex flex-col space-y-2">
+                        <input 
+                            type="text" 
+                            value={newItemName}
+                            onChange={e => setNewItemName(e.target.value)}
+                            placeholder="Namn på egen rad..."
+                            className="p-2 bg-slate-700 border border-slate-600 rounded-lg text-sm w-full text-slate-200 placeholder:text-slate-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        <div className="flex items-center gap-2">
+                             <label htmlFor="new-item-color" className="text-sm text-slate-400">Färg:</label>
+                             <input 
+                                type="color" 
+                                id="new-item-color"
+                                value={newItemColor}
+                                onChange={e => setNewItemColor(e.target.value)}
+                                className="w-8 h-8 p-1 bg-slate-700 border border-slate-600 rounded"
+                             />
+                            <button onClick={handleAddCustomItem} className="bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 px-3 rounded-lg text-sm shadow-sm hover:shadow transition-all w-full justify-center flex items-center">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
                                 Lägg till
                             </button>
-                         </div>
-                    </div>
+                        </div>
+                     </div>
                 </div>
-            </aside>
-        </>
+            </div>
+        </aside>
     );
 };
 

@@ -1,6 +1,7 @@
 
 // Allmänna typer
-export type DrawingTool = 'walkway' | 'fence' | 'construction-traffic' | 'pen' | 'text' | 'schakt' | 'crane' | 'building' | 'zone' | 'line';
+// KORRIGERING: Definierar alla kända typer explicit. Tar bort den generiska 'symbol'.
+export type DrawingTool = 'walkway' | 'fence' | 'construction-traffic' | 'pen' | 'text' | 'schakt' | 'crane' | 'building' | 'zone' | 'line' | 'brandslackare' | 'atervinning' | 'forsta-hjalpen' | 'wc' | 'brandfarlig-vara' | 'gasflaskor' | 'ogonskadeskydd' | 'varselstack';
 
 // Typ-vakter (Type Guards)
 export const isLineTool = (tool: string): tool is 'walkway' | 'fence' | 'construction-traffic' | 'pen' => 
@@ -19,11 +20,19 @@ export const isBuilding = (obj: APDObject): obj is APDObject & { type: 'building
 export const isZone = (obj: APDObject): obj is APDObject & { type: 'zone' } => obj.type === 'zone';
 export const isLine = (obj: APDObject): obj is APDObject & { type: 'line' } => obj.type === 'line';
 
+// KORRIGERING: Ersätter den bräckliga isSymbol-implementationen med en robust logisk kontroll.
+export const isSymbol = (obj: APDObject): boolean => {
+    if (!obj || !obj.type) return false;
+    const knownNonSymbolTypes: string[] = ['walkway', 'fence', 'construction-traffic', 'pen', 'text', 'schakt', 'crane', 'building', 'zone', 'line'];
+    return !knownNonSymbolTypes.includes(obj.type);
+};
+
 // Gränssnitt (Interfaces)
 export interface LibraryItem {
     name: string;
-    type: DrawingTool;
-    icon?: string;
+    // KORRIGERING: Återställer typen till en striktare definition.
+    type: string;
+    iconUrl?: string;
     width?: number;
     height?: number;
     radius?: number;
@@ -41,7 +50,8 @@ export interface APDObject {
     rotation: number;
     scaleX: number;
     scaleY: number;
-    type: DrawingTool;
+    // KORRIGERING: Återställer typen till en striktare definition.
+    type: string;
     points?: number[];
     text?: string;
     fontSize?: number;

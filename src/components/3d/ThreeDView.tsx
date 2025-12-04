@@ -3,35 +3,50 @@ import React, { Suspense, useMemo, useRef, useCallback, useEffect } from 'react'
 import { Canvas } from '@react-three/fiber';
 import { Sky, OrbitControls, Grid, Plane, useTexture, TransformControls } from '@react-three/drei';
 import * as THREE from 'three';
-import { APDObject, LibraryCategory, isBuilding, isLine, isSchakt, isPen } from '../../types';
+import { APDObject, LibraryCategory, isBuilding, isLine, isSchakt, isPen, isSymbol } from '../../types';
 
 const SCALE_FACTOR = 1 / 50;
 
-// KORRIGERING: Korrekt minneshantering implementerad.
+// KORRIGERING: Isolerad komponent för symboler för att hantera texturer säkert.
+const ThreeDSymbol = ({ position, iconUrl }: { position: [number, number, number], iconUrl: string }) => {
+    const texture = useTexture(iconUrl);
+
+    useEffect(() => {
+        return () => {
+            texture.dispose();
+        };
+    }, [texture]);
+
+    return (
+        <Plane args={[2, 2]} position={position}>
+            <meshStandardMaterial map={texture} transparent side={THREE.DoubleSide} alphaTest={0.5} />
+        </Plane>
+    );
+};
+
+
 const ThreeDObject = React.memo(({ obj, background, item, onSelect }: { obj: APDObject, background: any, item: any, onSelect: (e?: any) => void }) => {
     const meshRef = useRef<THREE.Mesh>(null!);
-    const tubeMeshRef = useRef<THREE.Mesh>(null!); // Ref för Tube-geometri
+    const tubeMeshRef = useRef<THREE.Mesh>(null!); 
 
-    // Denna useEffect-hook säkerställer att geometri och material tas bort när objektet försvinner.
     useEffect(() => {
         const mesh = meshRef.current;
         const tubeMesh = tubeMeshRef.current;
         
-        return () => {
-            // Funktion för att säkert ta bort resurser från ett mesh
-            const disposeMesh = (m: THREE.Mesh) => {
-                if (m) {
-                    if (m.geometry) m.geometry.dispose();
-                    if (m.material) {
-                        if (Array.isArray(m.material)) {
-                            m.material.forEach(material => material.dispose());
-                        } else {
-                            m.material.dispose();
-                        }
+        const disposeMesh = (m: THREE.Mesh) => {
+            if (m) {
+                if (m.geometry) m.geometry.dispose();
+                if (m.material) {
+                    if (Array.isArray(m.material)) {
+                        m.material.forEach(material => material.dispose());
+                    } else {
+                        m.material.dispose();
                     }
                 }
-            };
+            }
+        };
 
+        return () => {
             disposeMesh(mesh);
             disposeMesh(tubeMesh);
         };
@@ -42,6 +57,12 @@ const ThreeDObject = React.memo(({ obj, background, item, onSelect }: { obj: APD
     
     const position: [number, number, number] = [(obj.x - bgWidth / 2) * SCALE_FACTOR, 0, (obj.y - bgHeight / 2) * SCALE_FACTOR];
     const rotationY = -THREE.MathUtils.degToRad(obj.rotation || 0);
+
+    // KORRIGERING: Kontrollera om item finns och har en giltig iconUrl.
+    if (isSymbol(obj) && item?.iconUrl) {
+        position[1] = 1.0; // Höjd från marken
+        return <ThreeDSymbol position={position} iconUrl={item.iconUrl} />;
+    }
 
     if (isBuilding(obj) || item?.name.toLowerCase().includes('bod')) {
         position[1] = 1.5;
@@ -71,14 +92,8 @@ const ThreeDObject = React.memo(({ obj, background, item, onSelect }: { obj: APD
         return <mesh name={obj.id} ref={meshRef} position={position} rotation={[0, rotationY, 0]} onClick={onSelect}><boxGeometry args={[width, 0.1, height]} /><meshStandardMaterial color={obj.item.fill || '#a1662f'} transparent opacity={0.7} /></mesh>;
     }
 
-    // Fallback för ikoner/symboler - nu som en platt billboard
-    const texture = useTexture(obj.item.iconUrl || '/assets/ikoner/brandslackare.png');
-    position[1] = 1.0; // Höjd från marken
-    return (
-        <Plane args={[2, 2]} ref={meshRef as any} name={obj.id} position={position} onClick={onSelect}>
-            <meshStandardMaterial map={texture} transparent side={THREE.DoubleSide} alphaTest={0.5} />
-        </Plane>
-    );
+    // Om inget annat matchar, rendera ingenting för detta objekt i 3D.
+    return null;
 });
 
 const BackgroundPlane = React.memo(({ background }: { background: { url: string; width: number; height: number; } | null }) => {

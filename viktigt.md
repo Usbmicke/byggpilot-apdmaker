@@ -15,4 +15,3 @@ STRIKTA REGLER FÖR KODNING:
 4. BEVARA KOD: Skriv inte om hela filer om det inte krävs. Ändra endast de specifika delar som behövs för att lösa uppgiften utan att röra orelaterad logik.
 
 UPPGIFT NU:
-[Här skriver du din faktiska fråga/uppgift...]

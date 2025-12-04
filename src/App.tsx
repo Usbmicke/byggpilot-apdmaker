@@ -1,11 +1,10 @@
 
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import toast, { Toaster } from 'react-hot-toast';
 import { pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
-import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.js?url';
 
 import { APDObject, LibraryItem, ProjectInfo, DrawingTool, CustomLegendItem } from './types';
 import { defaultProjectInfo, defaultCustomLegend } from './utils/defaults';
@@ -15,12 +14,11 @@ import Header from './components/header/Header';
 import Library from './components/library/LibraryPanel';
 import Legend from './components/legend/LegendPanel';
 import CanvasPanel from './components/canvas/CanvasPanel';
-import ThreeDView from './components/3d/ThreeDView';
+
 import { loadAPD } from './utils/apdFileHandler';
 import { handlePDF } from './utils/pdfHandler';
-import { LIBRARY_CATEGORIES as libraryCategories } from './constants/libraryItems';
 
-pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
 
 const App: React.FC = () => {
     const stageRef = useRef<any>(null);
@@ -38,7 +36,7 @@ const App: React.FC = () => {
     } = useHistory<APDObject[]>([]);
     
     const [background, setBackground] = useState<{ url: string; width: number; height: number; } | null>(null);
-    const [selectedId, setSelectedId] = useState<string | null>(null);
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [projectInfo, setProjectInfo] = useState<ProjectInfo>(defaultProjectInfo);
     const [customLegendItems, setCustomLegendItems] = useState<CustomLegendItem[]>(defaultCustomLegend);
     
@@ -49,8 +47,20 @@ const App: React.FC = () => {
     const [isLegendOpen, setIsLegendOpen] = useState(true);
     const [show3D, setShow3D] = useState(false); 
 
+    const removeObjects = useCallback((ids: string[]) => {
+        if (ids.length === 0) return;
+        snapshot();
+        setObjects(prev => prev.filter(obj => !ids.includes(obj.id)));
+        setSelectedIds([]);
+    }, [snapshot, setObjects]);
+
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
+            const activeElement = document.activeElement;
+            if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
+                return;
+            }
+
             if (e.ctrlKey || e.metaKey) {
                 if (e.key === 'z') { e.preventDefault(); undo(); }
                 if (e.key === 'y' || (e.key === 'Z' && e.shiftKey)) { e.preventDefault(); redo(); }
@@ -58,19 +68,19 @@ const App: React.FC = () => {
             if (e.key === 'Escape') {
                 setDrawingState(null);
                 setPendingItem(null);
-                setSelectedId(null);
+                setSelectedIds([]);
             }
             if(e.key === 'Delete' || e.key === 'Backspace') {
-                if(selectedId) removeObject(selectedId)
+                if (selectedIds.length > 0) removeObjects(selectedIds);
             }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [undo, redo, selectedId]);
+    }, [undo, redo, selectedIds, removeObjects]);
 
     const checkDeselect = (e: any) => {
         const clickedOnEmpty = e.target === e.target.getStage();
-        if (clickedOnEmpty) setSelectedId(null);
+        if (clickedOnEmpty) setSelectedIds([]);
     };
 
     const addObject = (item: LibraryItem, position: {x: number, y: number}, extraProps: Partial<APDObject> = {}) => {
@@ -88,12 +98,6 @@ const App: React.FC = () => {
         };
         setObjects(prev => [...prev, newObject]);
     };
-
-    const removeObject = (id: string) => {
-        snapshot();
-        setObjects(prev => prev.filter(obj => obj.id !== id));
-        setSelectedId(null);
-    }
 
     const updateObject = (id: string, attrs: Partial<APDObject>) => {
         setObjects(prev => prev.map(obj => obj.id === id ? { ...obj, ...attrs } : obj));
@@ -113,12 +117,30 @@ const App: React.FC = () => {
             } else if (file.type.startsWith('image/')) {
                 const url = URL.createObjectURL(file);
                 const img = new Image();
-                img.onload = () => setBackground({ url, width: img.width, height: img.height });
-                img.onerror = () => toast.error('Kunde inte ladda bildfilen.');
+                img.onload = () => {
+                    setBackground({ url, width: img.width, height: img.height });
+                    resetHistory([]);
+                    setObjects([]);
+                    setProjectInfo(defaultProjectInfo);
+                    setCustomLegendItems(defaultCustomLegend);
+                    setSelectedIds([]);
+                    toast.success('Bilden har laddats!');
+                    URL.revokeObjectURL(url); 
+                };
+                img.onerror = () => {
+                    toast.error('Kunde inte ladda bildfilen.');
+                    URL.revokeObjectURL(url); 
+                }
                 img.src = url;
             } else if (file.type === 'application/pdf') {
                 const bg = await handlePDF(file);
                 setBackground(bg);
+                resetHistory([]);
+                setObjects([]);
+                setProjectInfo(defaultProjectInfo);
+                setCustomLegendItems(defaultCustomLegend);
+                setSelectedIds([]);
+                toast.success('PDF-filen har laddats!');
             } else {
                 toast.error('Filtypen stöds inte. Välj en .apd, bild- eller PDF-fil.');
             }
@@ -135,12 +157,15 @@ const App: React.FC = () => {
         setBackground(null);
         setProjectInfo(defaultProjectInfo);
         setCustomLegendItems(defaultCustomLegend);
-        setSelectedId(null);
+        setSelectedIds([]);
         toast.success('Projektet har rensats!');
     };
 
     return (
-        <div className="flex flex-col h-screen bg-slate-900 text-white font-sans overflow-hidden" ref={mainContainerRef}>
+        <div 
+            className="flex flex-col h-screen bg-slate-900 text-white font-sans overflow-hidden"
+            ref={mainContainerRef}
+        >
             <Toaster position="bottom-center" toastOptions={{ className: 'bg-slate-700 text-white', duration: 4000 }} />
             
             <Header 
@@ -167,27 +192,16 @@ const App: React.FC = () => {
                 />
 
                 <div className="flex-1 flex flex-col relative">
-                {show3D ? (
-                    <ThreeDView 
-                        objects={objects} 
-                        background={background} 
-                        libraryCategories={libraryCategories}
-                        selectedId={selectedId}
-                        onSelect={setSelectedId}
-                        onObjectChange={updateObject}
-                        onSnapshot={snapshot}
-                    />
-                ) : (
                     <CanvasPanel 
                         stageRef={stageRef}
                         objects={objects}
                         background={background}
-                        selectedId={selectedId}
-                        setSelectedId={setSelectedId}
+                        selectedIds={selectedIds}
+                        setSelectedIds={setSelectedIds}
                         checkDeselect={checkDeselect}
                         addObject={addObject}
                         updateObject={updateObject}
-                        removeObject={removeObject}
+                        removeObjects={removeObjects}
                         drawingState={drawingState}
                         setDrawingState={setDrawingState}
                         pendingItem={pendingItem}
@@ -199,7 +213,6 @@ const App: React.FC = () => {
                         canUndo={canUndo}
                         canRedo={canRedo}
                     />
-                )}
                 </div>
                 
                 {!show3D && background && (

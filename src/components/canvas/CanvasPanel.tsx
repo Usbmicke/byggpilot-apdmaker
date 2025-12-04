@@ -1,12 +1,10 @@
 
-import React, { useRef, useState, useEffect } from 'react';
-import { Stage, Layer, Image as KonvaImage, Line } from 'react-konva';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { Stage, Layer, Image as KonvaImage, Line, Transformer, Rect } from 'react-konva';
 import useImage from 'use-image';
-import { APDObject, LibraryItem, DrawingTool, isTextTool } from '../../types/index';
+import { APDObject, LibraryItem, isLineTool, DrawingTool, isTextTool } from '../../types/index';
 import DraggableObject from '../draggable/DraggableObject';
-import toast from 'react-hot-toast';
 
-// Ny komponent för Ångra/Gör om-knappar
 const UndoRedoControls = ({ undo, redo, canUndo, canRedo }: { undo: () => void, redo: () => void, canUndo: boolean, canRedo: boolean }) => (
     <div className="absolute top-4 right-4 z-10 flex gap-2">
         <button onClick={undo} disabled={!canUndo} className="bg-slate-700/80 hover:bg-slate-600/80 backdrop-blur-sm text-white font-bold p-2 rounded-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all">
@@ -24,19 +22,18 @@ interface CanvasPanelProps {
     stageRef: React.RefObject<any>;
     objects: APDObject[];
     background: { url: string; width: number; height: number; } | null;
-    selectedId: string | null;
-    setSelectedId: (id: string | null) => void;
+    selectedIds: string[];
+    setSelectedIds: (ids: string[]) => void;
     checkDeselect: (e: any) => void;
     addObject: (item: LibraryItem, position: { x: number; y: number }, extraProps?: Partial<APDObject>) => void;
     updateObject: (id: string, attrs: Partial<APDObject>) => void;
-    removeObject: (id: string) => void;
+    removeObjects: (ids: string[]) => void;
     drawingState: DrawingState;
     setDrawingState: React.Dispatch<React.SetStateAction<DrawingState>>;
     pendingItem: LibraryItem | null;
     setPendingItem: (item: LibraryItem | null) => void;
     onSnapshot: () => void; 
     handleFile: (file: File) => void;
-    // Nya props för undo/redo
     canUndo: boolean;
     canRedo: boolean;
     undo: () => void;
@@ -61,7 +58,7 @@ const WelcomeScreen: React.FC<{ onFileDrop: (file: File) => void }> = ({ onFileD
             <div className="relative flex flex-col items-center justify-center w-4/5 max-w-2xl p-10 md:p-16 border-4 border-dashed border-slate-600 rounded-2xl hover:border-blue-500 transition-all duration-300 bg-slate-800 group cursor-pointer" onClick={handleDivClick}>
                 <svg className="w-20 h-20 text-slate-500 group-hover:text-blue-500 transition-colors duration-300 mb-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                 <h2 className="text-3xl font-bold text-white mb-2">Dra & Släpp Din Ritning Här</h2>
-                <p className="text-slate-400 mb-8">Börja ditt projekt genom att ladda upp en PDF, PNG, JPG eller APD-fil.</p>
+                <p className="text-slate-400 mb-8">Börja ditt projekt genom att ladda upp en PDF, PNG, JPG eller "APD-fil".</p>
                 <input type="file" ref={fileInputRef} className="hidden" accept="image/*,application/pdf,.apd" onChange={handleFileChange} />
                 <button className="sparkle-button sparkle-blue"><span className="spark"></span><span className="text">Eller Klicka För Att Välja Fil</span></button>
             </div>
@@ -69,19 +66,22 @@ const WelcomeScreen: React.FC<{ onFileDrop: (file: File) => void }> = ({ onFileD
     );
 };
 
-
 const CanvasPanel: React.FC<CanvasPanelProps> = ({ 
-    stageRef, objects, background, selectedId, setSelectedId, checkDeselect, addObject, updateObject, 
-    drawingState, setDrawingState, pendingItem, setPendingItem, onSnapshot, handleFile,
+    stageRef, objects, background, selectedIds, setSelectedIds, checkDeselect, addObject, updateObject, 
+    drawingState, setDrawingState, pendingItem, setPendingItem, onSnapshot, handleFile, 
     canUndo, canRedo, undo, redo
 }) => {
     const containerRef = useRef<HTMLDivElement>(null);
+    const trRef = useRef<any>(null);
     const [bgImage] = useImage(background?.url || '');
     const [size, setSize] = useState({ width: 0, height: 0 });
+    const [isDragOver, setIsDragOver] = useState(false);
     const [tempLinePoints, setTempLinePoints] = useState<number[]>([]);
     const [editingText, setEditingText] = useState<APDObject | null>(null);
     const textEditRef = useRef<HTMLTextAreaElement>(null);
-
+    const selectionRectRef = useRef<any>(null);
+    const [selectionBox, setSelectionBox] = useState<{ x: number, y: number, width: number, height: number, visible: boolean }>({ x: 0, y: 0, width: 0, height: 0, visible: false });
+    
     useEffect(() => {
         const checkSize = () => {
             if (containerRef.current) {
@@ -95,13 +95,9 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
 
     useEffect(() => {
         if (background && bgImage && stageRef.current && size.width > 0) {
-            const stage = stageRef.current;
             const scale = Math.min(size.width / background.width, size.height / background.height) * 0.95;
             stage.scale({ x: scale, y: scale });
-            stage.position({ 
-                x: (size.width - background.width * scale) / 2,
-                y: (size.height - background.height * scale) / 2 
-            });
+            stage.position({ x: (size.width - background.width * scale) / 2, y: (size.height - background.height * scale) / 2 });
         }
     }, [background, bgImage, size, stageRef]);
 
@@ -112,15 +108,42 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         }
     }, [editingText]);
 
-    const getRelativePointerPosition = (node: any) => {
-        const transform = node.getAbsoluteTransform().copy().invert();
-        const pos = node.getStage().getPointerPosition();
-        return transform.point(pos);
+    useEffect(() => {
+        if (trRef.current) {
+            const stage = stageRef.current;
+            const nodes = selectedIds.map(id => stage.findOne('.' + id)).filter(Boolean);
+            trRef.current.nodes(nodes);
+            trRef.current.getLayer()?.batchDraw();
+        }
+    }, [selectedIds, objects]);
+    
+    const getRelativePointerPosition = (stage: any) => {
+        try {
+            const transform = stage.getAbsoluteTransform().copy().invert();
+            const pos = stage.getPointerPosition();
+            if (!pos) return { x: 0, y: 0 };
+            return transform.point(pos);
+        } catch (error) {
+            console.error("Kunde inte hämta pekarens position:", error);
+            return { x: 0, y: 0 };
+        }
     };
 
+    const handleObjectClick = (e: any) => {
+        if (editingText) setEditingText(null);
+        const id = e.target.id();
+        const isShift = e.evt.shiftKey;
+        const newSelectedIds = isShift
+            ? selectedIds.includes(id)
+                ? selectedIds.filter(selectedId => selectedId !== id)
+                : [...selectedIds, id]
+            : selectedIds.includes(id) && selectedIds.length === 1 ? [] : [id];
+        setSelectedIds(newSelectedIds);
+    };
+    
     const handleStageClick = (e: any) => {
         if (e.target !== e.target.getStage()) return;
-        const pos = getRelativePointerPosition(stageRef.current);
+        const pos = getRelativePointerPosition(e.target.getStage());
         if (pendingItem) {
             addObject(pendingItem, pos, isTextTool(pendingItem.type) ? { text: 'Text' } : {});
             setPendingItem(null);
@@ -128,12 +151,58 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
             setDrawingState(prev => prev ? { ...prev, points: [...prev.points, pos.x, pos.y] } : null);
         }
     };
+    
+    const handleStageMouseDown = (e: any) => {
+        if (e.target !== stageRef.current || e.evt.button !== 0) return;
+        const pos = getRelativePointerPosition(e.target.getStage());
+        setSelectionBox({ x: pos.x, y: pos.y, width: 0, height: 0, visible: true });
+        if (!e.evt.shiftKey) {
+            checkDeselect(e);
+        }
+    };
 
+    const handleStageMouseMove = (e: any) => {
+        const stage = e.target.getStage();
+        if (!stage) return;
+        if (drawingState) {
+            if (drawingState.points.length > 0) {
+                const pos = getRelativePointerPosition(stage);
+                setTempLinePoints([...drawingState.points, pos.x, pos.y]);
+            }
+            return;
+        }
+        if (!selectionBox.visible) return;
+        const pos = getRelativePointerPosition(stage);
+        setSelectionBox(prev => ({ ...prev, width: pos.x - prev.x, height: pos.y - prev.y }));
+    };
+
+    const handleStageMouseUp = (e: any) => {
+        if (selectionBox.visible) {
+            const stage = stageRef.current;
+            const box = selectionRectRef.current.getClientRect();
+            const newSelectedIds = objects.map(obj => {
+                const node = stage.findOne('.' + obj.id);
+                if (!node) return null; 
+                const objBox = node.getClientRect();
+                const isIntersecting = box.x < objBox.x + objBox.width && box.x + box.width > objBox.x &&
+                                     box.y < objBox.y + objBox.height && box.y + box.height > objBox.y;
+                return isIntersecting ? obj.id : null;
+            }).filter((id): id is string => id !== null); 
+    
+            const finalSelection = e.evt.shiftKey 
+                ? [...new Set([...selectedIds, ...newSelectedIds])]
+                : newSelectedIds;
+    
+            setSelectedIds(finalSelection);
+        }
+        setSelectionBox({ ...selectionBox, visible: false });
+    };
+    
     const handleContextMenu = (e: any) => {
         e.evt.preventDefault();
-        if (drawingState && drawingState.points.length >= 4) {
+        if (drawingState && drawingState.points.length > 2) {
             onSnapshot();
-            addObject(drawingState.item, {x:0, y:0}, { points: drawingState.points });
+            addObject(drawingState.item, { x: 0, y: 0 }, { points: tempLinePoints });
             setDrawingState(null);
             setTempLinePoints([]);
         } else {
@@ -142,36 +211,44 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         }
     };
 
-    const handleMouseMove = () => {
-        if (!drawingState || drawingState.points.length === 0) return;
-        const pos = getRelativePointerPosition(stageRef.current);
-        setTempLinePoints([...drawingState.points, pos.x, pos.y]);
-    };
-
     const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
         e.preventDefault();
+        setIsDragOver(false);
         const stage = stageRef.current;
         if (!stage) return;
-        stage.setPointersPositions(e);
-        const pos = getRelativePointerPosition(stage);
 
-        if (e.dataTransfer.files.length > 0) {
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
             handleFile(e.dataTransfer.files[0]);
             return;
         }
+
         const itemStr = e.dataTransfer.getData('application/json');
         if (itemStr) {
+            stage.setPointersPositions(e);
+            const pos = getRelativePointerPosition(stage);
             const item = JSON.parse(itemStr);
             addObject(item, pos);
         }
     };
-    
+
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        if (e.dataTransfer.types.includes('Files')) {
+          setIsDragOver(true);
+        }
+    };
+
+    const handleDragLeave = () => {
+        setIsDragOver(false);
+    };
+
     const handleWheel = (e: any) => {
         e.evt.preventDefault();
         const stage = stageRef.current;
         if (!stage) return;
         const oldScale = stage.scaleX();
         const pointer = stage.getPointerPosition();
+        if(!pointer) return;
         const mousePointTo = { x: (pointer.x - stage.x()) / oldScale, y: (pointer.y - stage.y()) / oldScale };
         const newScale = e.evt.deltaY > 0 ? oldScale / 1.1 : oldScale * 1.1;
         stage.scale({ x: newScale, y: newScale });
@@ -180,7 +257,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     };
 
     const handleTextDblClick = (obj: APDObject) => {
-        setSelectedId(null); 
+        setSelectedIds([]);
         setEditingText(obj);
     };
 
@@ -196,10 +273,10 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     };
 
     const getTextareaStyle = (node: any): React.CSSProperties => {
+        if (!node) return { display: 'none' };
         const textPosition = node.absolutePosition();
         const stage = stageRef.current;
         const stageBox = stage.container().getBoundingClientRect();
-
         return {
             position: 'absolute',
             top: stageBox.top + textPosition.y + 'px',
@@ -222,28 +299,44 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         };
     };
 
+    const onDragStart = useCallback((e: any) => {
+        onSnapshot();
+    }, [onSnapshot]);
+
+    const onTransformStart = useCallback(() => {
+        onSnapshot();
+    }, [onSnapshot]);
+
+
     return (
-        <div 
+        <div
             className={`flex-1 relative overflow-hidden bg-slate-900 touch-none ${drawingState ? 'cursor-crosshair' : 'cursor-grab'}`}
             ref={containerRef}
             onDrop={handleDrop}
-            onDragOver={(e) => e.preventDefault()}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
         >
             {!background ? (
                 <WelcomeScreen onFileDrop={handleFile} />
             ) : (
                 <>
+                    {isDragOver && (
+                        <div className="absolute inset-0 z-20 flex items-center justify-center bg-blue-900/50 border-4 border-dashed border-blue-400 rounded-lg pointer-events-none">
+                            <h2 className="text-3xl font-bold text-white">Släpp filen för att ladda upp</h2>
+                        </div>
+                    )}
                     <UndoRedoControls undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo} />
                     <Stage
                         ref={stageRef}
                         width={size.width}
                         height={size.height}
-                        onMouseDown={checkDeselect}
+                        onMouseDown={handleStageMouseDown}
+                        onMouseMove={handleStageMouseMove}
+                        onMouseUp={handleStageMouseUp}
                         onClick={handleStageClick}
                         onContextMenu={handleContextMenu}
-                        onMouseMove={handleMouseMove}
                         onWheel={handleWheel}
-                        draggable={!drawingState && !selectedId && !editingText}
+                        draggable={selectedIds.length === 0 && !drawingState && !editingText}
                     >
                         <Layer>
                             <KonvaImage image={bgImage} listening={false} x={0} y={0} width={background.width} height={background.height} />
@@ -255,7 +348,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                                     stroke={drawingState.item.stroke || '#ff0000'}
                                     strokeWidth={drawingState.item.strokeWidth || 5}
                                     dash={drawingState.item.dash}
-                                    tension={0.5} 
+                                    tension={0.5}
                                     lineCap="round"
                                     listening={false}
                                 />
@@ -263,14 +356,52 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                             {objects.map((obj) => (
                                 <DraggableObject
                                     key={obj.id}
-                                    obj={{...obj, visible: editingText ? editingText.id !== obj.id : true}}
-                                    isSelected={obj.id === selectedId}
-                                    onSelect={() => !editingText && setSelectedId(obj.id)}
-                                    onChange={(attrs) => updateObject(obj.id, attrs)}
-                                    onInteractionStart={onSnapshot}
+                                    obj={{ ...obj, visible: editingText ? editingText.id !== obj.id : true }}
+                                    isSelected={selectedIds.includes(obj.id)}
+                                    onSelect={(e) => handleObjectClick(e)}
+                                    onChange={attrs => updateObject(obj.id, attrs)}
+                                    onDragStart={onDragStart} 
                                     onTextDblClick={() => isTextTool(obj.type) && handleTextDblClick(obj)}
                                 />
                             ))}
+                             <Transformer
+                                ref={trRef}
+                                boundBoxFunc={(oldBox, newBox) => newBox.width < 5 || newBox.height < 5 ? oldBox : newBox}
+                                anchorStroke="#007bff"
+                                anchorFill="#fff"
+                                anchorSize={10}
+                                borderStroke="#007bff"
+                                borderDash={[6, 2]}
+                                onTransformStart={onTransformStart}
+                                onTransformEnd={() => {
+                                    const nodes = trRef.current.nodes();
+                                    nodes.forEach((node: any) => {
+                                        const scaleX = node.scaleX();
+                                        const scaleY = node.scaleY();
+                                        node.scaleX(1);
+                                        node.scaleY(1);
+                                        updateObject(node.id(), {
+                                            x: node.x(),
+                                            y: node.y(),
+                                            rotation: node.rotation(),
+                                            width: node.width() * scaleX,
+                                            height: node.height() * scaleY,
+                                        });
+                                    });
+                                }}
+                            />
+                            <Layer ref={selectionRectRef}>
+                                <Rect
+                                    fill="rgba(0, 123, 255, 0.2)"
+                                    stroke="rgba(0, 123, 255, 0.6)"
+                                    strokeWidth={1}
+                                    visible={selectionBox.visible}
+                                    x={selectionBox.x}
+                                    y={selectionBox.y}
+                                    width={selectionBox.width}
+                                    height={selectionBox.height}
+                                />
+                            </Layer>
                         </Layer>
                     </Stage>
                     {editingText && (

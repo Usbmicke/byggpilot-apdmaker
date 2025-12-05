@@ -88,13 +88,20 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
             const stage = stageRef.current;
             if (!stage) return;
             const type = monitor.getItemType();
-            const pos = stage.getRelativePointerPosition();
 
             if (type === NativeTypes.FILE) {
                 if (item.files && item.files.length > 0) handleFile(item.files[0]);
             } else if (type === ItemTypes.LIBRARY_ITEM) {
-                if (!pos) return;
-                addObject(item, pos);
+                const offset = monitor.getClientOffset();
+                if (!offset) return;
+                
+                const stageRect = stage.container().getBoundingClientRect();
+                const relativePos = {
+                    x: (offset.x - stageRect.left - stage.x()) / stage.scaleX(),
+                    y: (offset.y - stageRect.top - stage.y()) / stage.scaleY(),
+                };
+
+                addObject(item, relativePos);
             }
         },
         collect: (monitor) => ({ isOver: monitor.isOver(), canDrop: monitor.canDrop(), draggedItemType: monitor.getItemType() }),
@@ -258,7 +265,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                         width={size.width} height={size.height}
                         onMouseDown={handleStageMouseDown} onMouseMove={handleStageMouseMove} onMouseUp={handleStageMouseUp}
                         onClick={handleStageClick} onContextMenu={handleContextMenu} onWheel={handleWheel}
-                        // KORRIGERING: Panorering är nu endast aktivt när användaren inte utför en annan kritisk interaktion.
                         draggable={!selectedIds.length && !drawingState && !pendingItem && !editingText}
                     >
                         <Layer>
@@ -266,7 +272,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                         </Layer>
                         <Layer>
                             {tempLinePoints.length > 0 && drawingState && (
-                                <Line points={tempLinePoints} stroke={drawingState.item.stroke || '#ff0000'} strokeWidth={drawingState.item.strokeWidth || 5} dash={drawingState.item.dash} tension={isPen(obj) ? 0.5 : 0} lineCap="round" listening={false}/>
+                                <Line points={tempLinePoints} stroke={drawingState.item.stroke || '#ff0000'} strokeWidth={drawingState.item.strokeWidth || 5} dash={drawingState.item.dash} tension={isPen(drawingState.item.type) ? 0.5 : 0} lineCap="round" listening={false}/>
                             )}
                             {objects.map((obj) => (
                                 <DraggableObject
@@ -300,7 +306,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                                             rotation: node.rotation(), 
                                             width: node.width() * scaleX, 
                                             height: node.height() * scaleY,
-                                            scaleX: 1, // Säkerställ att skalan återställs i state
+                                            scaleX: 1,
                                             scaleY: 1,
                                         });
                                     });
@@ -315,8 +321,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                             value={editingText.text}
                             onChange={(e) => updateObject(editingText.id, { text: e.target.value })}
                             onBlur={handleTextareaBlur}
-                            style={getTextareaStyle(stageRef.current.findOne('.' + editingText.id))}
-                        />
+                            style={getTextareaStyle(stageRef.current.findOne('.' + editingText.id))}/>
                     )}
                 </>
             )}

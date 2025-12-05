@@ -19,9 +19,9 @@ const ParkeringForbjudenIcon = () => <SvgIcon svg={ParkeringForbjudenSVG} />;
 export const skyltarCategory: { name: string; items: LibraryItem[] } = {
     name: "Skyltar & Hänvisning",
     items: [
-         { type: 'utrymning', name: 'Utrymningspil', icon: <UtrymningspilIcon />, initialProps: { iconUrl: createIcon(UtrymningspilSVG) } },
-         { type: 'varning', name: 'Varning', icon: <VarningIcon />, initialProps: { iconUrl: createIcon(VarningSVG) } },
-         { type: 'forbud', name: 'Tillträde förbjudet', icon: <ForbudIcon />, initialProps: { iconUrl: createIcon(ForbudSVG) } },
-         { type: 'parkering-forbjuden', name: 'Parkering förbjuden', icon: <ParkeringForbjudenIcon />, initialProps: { iconUrl: createIcon(ParkeringForbjudenSVG) } },
+         { type: 'utrymning', name: 'Utrymningspil', icon: <UtrymningspilIcon />, iconUrl: createIcon(UtrymningspilSVG) },
+         { type: 'varning', name: 'Varning', icon: <VarningIcon />, iconUrl: createIcon(VarningSVG) },
+         { type: 'forbud', name: 'Tillträde förbjudet', icon: <ForbudIcon />, iconUrl: createIcon(ForbudSVG) },
+         { type: 'parkering-forbjuden', name: 'Parkering förbjuden', icon: <ParkeringForbjudenIcon />, iconUrl: createIcon(ParkeringForbjudenSVG) },
     ]
 };

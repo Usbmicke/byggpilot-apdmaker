@@ -16,8 +16,8 @@ const OljeavskiljareIcon = () => <SvgIcon svg={OljeavskiljareSVG} />;
 export const miljoCategory: { name: string; items: LibraryItem[] } = {
     name: "Miljö",
     items: [
-        { type: 'miljostation', name: 'Miljöstation', icon: <MiljostationIcon />, initialProps: { iconUrl: 'src/assets/ikoner/miljostation.png' } },
-        { type: 'farligt-avfall', name: 'Farligt avfall', icon: <FarligtAvfallIcon />, initialProps: { iconUrl: createIcon(FarligtAvfallSVG) } },
-        { type: 'oil-separator', name: 'Oljeavskiljare', icon: <OljeavskiljareIcon />, initialProps: { iconUrl: createIcon(OljeavskiljareSVG) } },
+        { type: 'miljostation', name: 'Miljöstation', icon: <MiljostationIcon />, iconUrl: 'src/assets/ikoner/miljostation.png' },
+        { type: 'farligt-avfall', name: 'Farligt avfall', icon: <FarligtAvfallIcon />, iconUrl: createIcon(FarligtAvfallSVG) },
+        { type: 'oil-separator', name: 'Oljeavskiljare', icon: <OljeavskiljareIcon />, iconUrl: createIcon(OljeavskiljareSVG) },
     ]
 };

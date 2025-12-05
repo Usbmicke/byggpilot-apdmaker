@@ -21,10 +21,10 @@ const GasIcon = () => <SvgIcon svg={GasSVG} />;
 export const utrustningCategory: { name: string; items: LibraryItem[] } = {
     name: "Utrustning",
     items: [
-        { type: 'crane', name: 'Kran', icon: <KranIcon />, initialProps: { radius: 100, iconUrl: createIcon(KranSVG) } },
-        { type: 'elcentral', name: 'Elcentral', icon: <ElcentralIcon />, initialProps: { iconUrl: createIcon(ElcentralSVG) } },
-        { type: 'vatten', name: 'Vattenutkastare', icon: <VattenIcon />, initialProps: { iconUrl: createIcon(VattenSVG) } },
-        { type: 'gas', name: 'Gasförvaring', icon: <GasIcon />, initialProps: { iconUrl: createIcon(GasSVG) } },
-        { type: 'belysningsmast', name: 'Belysningsmast', icon: <LjusmastIcon />, initialProps: { iconUrl: createIcon(LjusmastSVG) } },
+        { type: 'crane', name: 'Kran', icon: <KranIcon />, iconUrl: createIcon(KranSVG), initialProps: { radius: 100 } },
+        { type: 'elcentral', name: 'Elcentral', icon: <ElcentralIcon />, iconUrl: createIcon(ElcentralSVG) },
+        { type: 'vatten', name: 'Vattenutkastare', icon: <VattenIcon />, iconUrl: createIcon(VattenSVG) },
+        { type: 'gas', name: 'Gasförvaring', icon: <GasIcon />, iconUrl: createIcon(GasSVG) },
+        { type: 'belysningsmast', name: 'Belysningsmast', icon: <LjusmastIcon />, iconUrl: createIcon(LjusmastSVG) },
     ]
 };

@@ -88,11 +88,19 @@ const App: React.FC = () => {
         if (clickedOnEmpty) setSelectedIds([]);
     };
 
+    // KORRIGERING: Robust addObject som kopierar ALLA egenskaper från LibraryItem.
     const addObject = (item: LibraryItem, position: {x: number, y: number}, extraProps: Partial<APDObject> = {}) => {
         snapshot();
         const newObject: APDObject = {
-            id: uuidv4(), item: item, type: item.type, x: position.x, y: position.y, rotation: 0, scaleX: 1, scaleY: 1,
-            width: item.width, height: item.height, ...extraProps
+            ...item, // Sprider alla egenskaper från mallen (LibraryItem)
+            id: uuidv4(), // Tilldelar ett unikt ID
+            x: position.x, // Ställer in den nya positionen
+            y: position.y,
+            rotation: 0,
+            scaleX: 1,
+            scaleY: 1,
+            item: item, // Behåller en referens till det ursprungliga biblioteksobjektet
+            ...extraProps // Tillämpar eventuella extra egenskaper
         };
         setObjects(prev => [...prev, newObject]);
     };
@@ -248,7 +256,6 @@ const App: React.FC = () => {
                     {background && (
                         <Legend 
                             isOpen={isLegendOpen}
-                            // KORRIGERING: Återställer de saknade proparna
                             projectInfo={projectInfo}
                             setProjectInfo={setProjectInfo}
                             objects={objects}

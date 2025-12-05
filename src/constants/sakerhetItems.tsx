@@ -32,14 +32,14 @@ const PpeIcon = () => <img src={PpeImage} alt="Personlig skyddsutrustning" class
 export const sakerhetCategory: { name: string; items: LibraryItem[] } = {
     name: "Säkerhet",
     items: [
-        { type: 'forsta-hjalpen', name: 'Första hjälpen', icon: <ForstaHjalpenIcon />, initialProps: { iconUrl: createIcon(ForstaHjalpenSVG) } },
-        { type: 'hjartstartare', name: 'Hjärtstartare', icon: <HjartstartareIcon />, initialProps: { iconUrl: createIcon(HjartstartareSVG) } },
-        { type: 'atersamlingsplats', name: 'Återsamlingsplats', icon: <AtersamlingsplatsIcon />, initialProps: { iconUrl: AtersamlingsplatsImage } },
-        { type: 'brandslackare', name: 'Brandsläckare', icon: <BrandslackareIcon />, initialProps: { iconUrl: BrandslackareImage } },
-        { type: 'brandpost', name: 'Brandpost', icon: <BrandpostIcon />, initialProps: { iconUrl: createIcon(BrandpostSVG) } },
-        { type: 'ogondusch', name: 'Ögondusch', icon: <OgonduschIcon />, initialProps: { iconUrl: createIcon(OgonduschSVG) } },
-        { type: 'saneringsutrustning', name: 'Saneringsutrustning', icon: <SaneringsutrustningIcon />, initialProps: { iconUrl: createIcon(SaneringsutrustningSVG) } },
-        { type: 'raddningsutrustning', name: 'Räddningsutrustning', icon: <RaddningsutrustningIcon />, initialProps: { iconUrl: createIcon(RaddningsutrustningSVG) } },
-        { type: 'ppe', name: 'Personlig skyddsutrustning', icon: <PpeIcon />, initialProps: { iconUrl: PpeImage } },
+        { type: 'forsta-hjalpen', name: 'Första hjälpen', icon: <ForstaHjalpenIcon />, iconUrl: createIcon(ForstaHjalpenSVG) },
+        { type: 'hjartstartare', name: 'Hjärtstartare', icon: <HjartstartareIcon />, iconUrl: createIcon(HjartstartareSVG) },
+        { type: 'atersamlingsplats', name: 'Återsamlingsplats', icon: <AtersamlingsplatsIcon />, iconUrl: AtersamlingsplatsImage },
+        { type: 'brandslackare', name: 'Brandsläckare', icon: <BrandslackareIcon />, iconUrl: BrandslackareImage },
+        { type: 'brandpost', name: 'Brandpost', icon: <BrandpostIcon />, iconUrl: createIcon(BrandpostSVG) },
+        { type: 'ogondusch', name: 'Ögondusch', icon: <OgonduschIcon />, iconUrl: createIcon(OgonduschSVG) },
+        { type: 'saneringsutrustning', name: 'Saneringsutrustning', icon: <SaneringsutrustningIcon />, iconUrl: createIcon(SaneringsutrustningSVG) },
+        { type: 'raddningsutrustning', name: 'Räddningsutrustning', icon: <RaddningsutrustningIcon />, iconUrl: createIcon(RaddningsutrustningSVG) },
+        { type: 'ppe', name: 'Personlig skyddsutrustning', icon: <PpeIcon />, iconUrl: PpeImage },
     ]
 };

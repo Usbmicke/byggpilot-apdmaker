@@ -14,10 +14,10 @@ interface DraggableObjectProps {
 
 const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, onSelect, onChange, onDragStart, onTextDblClick }) => {
     const shapeRef = useRef<any>(null);
+    // KORRIGERING: Importerar och använder useImage för att ladda symbolens bild.
     const [image] = useImage(isSymbol(obj) ? obj.item.iconUrl || '' : '', 'anonymous');
 
-    // KORRIGERING: Säkerställ att width och height alltid är numeriska värden.
-    const safeWidth = obj.width || obj.item?.width || 50; // Fallback till 50 om allt saknas
+    const safeWidth = obj.width || obj.item?.width || 50;
     const safeHeight = obj.height || obj.item?.height || 50;
 
     const commonProps = {
@@ -44,6 +44,7 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, onSelect, onChan
     const renderContent = () => {
         const item = obj.item;
 
+        // KORRIGERING: Återinför den saknade render-logiken för symboler.
         if (isSymbol(obj)) {
             return <KonvaImage {...commonProps} image={image} offsetX={safeWidth / 2} offsetY={safeHeight / 2} />;
         }
@@ -60,7 +61,6 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, onSelect, onChan
 
         const shapeProps = {
             ...commonProps,
-            // KORRIGERING: Använder säkra värden för att förhindra NaN.
             offsetX: safeWidth / 2,
             offsetY: safeHeight / 2,
             fill: item.fill || '#D3D3D3',
@@ -84,6 +84,7 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, onSelect, onChan
             return <Rect {...shapeProps} dash={[10, 5]} />;
         }
 
+        // Fallback för andra rektangulära objekt.
         return <Rect {...shapeProps} />;
     };
 

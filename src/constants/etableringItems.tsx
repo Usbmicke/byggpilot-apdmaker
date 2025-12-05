@@ -17,8 +17,9 @@ const KontorIcon = () => <SvgIcon svg={KontorSVG} />;
 export const etableringCategory: { name: string; items: LibraryItem[] } = {
     name: "Etablering",
     items: [
-        { type: 'bygg-bod', name: 'Bygg bod', icon: <BodIcon />, initialProps: { iconUrl: createIcon(BodSVG) } },
-        { type: 'wc', name: 'WC', icon: <WCIcon />, initialProps: { iconUrl: createIcon(WCSVG) } },
-        { type: 'kontor', name: 'Kontor', icon: <KontorIcon />, initialProps: { iconUrl: createIcon(KontorSVG) } },
+        // KORRIGERING: Felaktig `initialProps`-struktur borttagen. `iconUrl` är nu en top-level-egenskap.
+        { type: 'bygg-bod', name: 'Bygg bod', icon: <BodIcon />, iconUrl: createIcon(BodSVG) },
+        { type: 'wc', name: 'WC', icon: <WCIcon />, iconUrl: createIcon(WCSVG) },
+        { type: 'kontor', name: 'Kontor', icon: <KontorIcon />, iconUrl: createIcon(KontorSVG) },
     ]
 };

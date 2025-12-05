@@ -1,6 +1,5 @@
 
 // Allmänna typer
-// KORRIGERING: Definierar alla kända typer explicit. Tar bort den generiska 'symbol'.
 export type DrawingTool = 'walkway' | 'fence' | 'construction-traffic' | 'pen' | 'text' | 'schakt' | 'crane' | 'building' | 'zone' | 'line' | 'brandslackare' | 'atervinning' | 'forsta-hjalpen' | 'wc' | 'brandfarlig-vara' | 'gasflaskor' | 'ogonskadeskydd' | 'varselstack';
 
 // Typ-vakter (Type Guards)
@@ -20,7 +19,6 @@ export const isBuilding = (obj: APDObject): obj is APDObject & { type: 'building
 export const isZone = (obj: APDObject): obj is APDObject & { type: 'zone' } => obj.type === 'zone';
 export const isLine = (obj: APDObject): obj is APDObject & { type: 'line' } => obj.type === 'line';
 
-// KORRIGERING: Ersätter den bräckliga isSymbol-implementationen med en robust logisk kontroll.
 export const isSymbol = (obj: APDObject): boolean => {
     if (!obj || !obj.type) return false;
     const knownNonSymbolTypes: string[] = ['walkway', 'fence', 'construction-traffic', 'pen', 'text', 'schakt', 'crane', 'building', 'zone', 'line'];
@@ -30,7 +28,6 @@ export const isSymbol = (obj: APDObject): boolean => {
 // Gränssnitt (Interfaces)
 export interface LibraryItem {
     name: string;
-    // KORRIGERING: Återställer typen till en striktare definition.
     type: string;
     iconUrl?: string;
     width?: number;
@@ -40,18 +37,22 @@ export interface LibraryItem {
     strokeWidth?: number;
     fill?: string;
     dash?: number[];
+    icon?: React.ReactNode;
+    initialProps?: Partial<Omit<APDObject, 'id' | 'x' | 'y'>>;
 }
 
 export interface APDObject {
     id: string;
-    item: LibraryItem;
+    type: string;
     x: number;
     y: number;
+    width: number;
+    height: number;
     rotation: number;
     scaleX: number;
     scaleY: number;
-    // KORRIGERING: Återställer typen till en striktare definition.
-    type: string;
+    quantity: number;
+    item: LibraryItem;
     points?: number[];
     text?: string;
     fontSize?: number;
@@ -60,8 +61,6 @@ export interface APDObject {
     strokeWidth?: number;
     dash?: number[];
     radius?: number;
-    width?: number;
-    height?: number;
     visible?: boolean; 
 }
 

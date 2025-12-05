@@ -22,7 +22,6 @@ interface HeaderProps {
     setShow3D: (show: boolean) => void;
 }
 
-// KORRIGERING: Komponenten har memoizerats för att förhindra onödiga re-renders.
 const Header: React.FC<HeaderProps> = ({ 
     stageRef, background, handleFile, objects, 
     customLegendItems, projectInfo, clearProject, toggleLibrary, toggleLegend,
@@ -95,7 +94,6 @@ const Header: React.FC<HeaderProps> = ({
     return (
         <header className="bg-slate-800 border-b border-slate-700 p-3 flex items-center justify-between z-30 relative shadow-md h-[72px]">
              <div className="flex items-center gap-3">
-                 {/* KORRIGERING: Tydligare tooltip och disabled-state */}
                  <button onClick={toggleLibrary} disabled={!background} className="p-2 rounded-md hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed" title="Visa/Dölj Symbol-bibliotek">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h8m-8 6h16" /></svg>
                  </button>
@@ -139,7 +137,6 @@ const Header: React.FC<HeaderProps> = ({
                 </div>
                 
                 <div className="md:hidden relative group"> 
-                    {/* KORRIGERING: Tydligare tooltip och disabled-state */}
                     <button className="p-2 rounded-md hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed" disabled={!background} title="Fler åtgärder">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
                     </button>

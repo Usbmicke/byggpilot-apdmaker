@@ -8,7 +8,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 
 import { APDObject, LibraryItem, ProjectInfo, DrawingTool, CustomLegendItem } from './types';
 import { defaultProjectInfo, defaultCustomLegend } from './utils/defaults';
-import { useHistory } from './hooks/useHistory';
+import { useHistory, UseHistoryReturn } from './hooks/useHistory';
 
 import Header from './components/header/Header';
 import Library from './components/library/LibraryPanel';
@@ -23,16 +23,8 @@ const App: React.FC = () => {
     const stageRef = useRef<any>(null);
     const mainContainerRef = useRef<HTMLDivElement>(null);
 
-    const {
-        state: objects,
-        setState: setObjects,
-        snapshot,
-        undo,
-        redo,
-        canUndo,
-        canRedo,
-        resetHistory
-    } = useHistory<APDObject[]>([]);
+    // KORRIGERING: Använder den nya, mer robusta useHistory-hooken.
+    const { state: objects, setState: setObjects, undo, redo, canUndo, canRedo, resetHistory } = useHistory<APDObject[]>([]);
     
     const [background, setBackground] = useState<{ url: string; width: number; height: number; } | null>(null);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -49,18 +41,16 @@ const App: React.FC = () => {
     useEffect(() => {
         const backgroundUrl = background?.url;
         if (backgroundUrl && (backgroundUrl.startsWith('blob:') || backgroundUrl.startsWith('data:'))) {
-            return () => {
-                URL.revokeObjectURL(backgroundUrl);
-            };
+            return () => URL.revokeObjectURL(backgroundUrl);
         }
     }, [background?.url]);
 
+    // KORRIGERING: Anpassad till den nya hooken. Anropar setState med immediate: true.
     const removeObjects = useCallback((ids: string[]) => {
         if (ids.length === 0) return;
-        snapshot();
-        setObjects(prev => prev.filter(obj => !ids.includes(obj.id)));
-        setSelectedIds([]);
-    }, [snapshot, setObjects]);
+        setObjects(objects.filter(obj => !ids.includes(obj.id)), true);
+        setSelectedIds(prev => prev.filter(id => !ids.includes(id)));
+    }, [objects, setObjects]);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -81,37 +71,36 @@ const App: React.FC = () => {
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [undo, redo, selectedIds, removeObjects]);
+    }, [undo, redo, selectedIds, removeObjects, objects]);
 
     const checkDeselect = (e: any) => {
-        const clickedOnEmpty = e.target === e.target.getStage();
-        if (clickedOnEmpty) setSelectedIds([]);
+        if (e.target === e.target.getStage()) setSelectedIds([]);
     };
 
-    // KORRIGERING: Robust addObject som kopierar ALLA egenskaper från LibraryItem.
+    // KORRIGERING: Anpassad till den nya hooken. Anropar setState med immediate: true.
     const addObject = (item: LibraryItem, position: {x: number, y: number}, extraProps: Partial<APDObject> = {}) => {
-        snapshot();
+        const baseProps = { ...item.initialProps, width: item.width || item.initialProps?.width || 50, height: item.height || item.initialProps?.height || 50 };
         const newObject: APDObject = {
-            ...item, // Sprider alla egenskaper från mallen (LibraryItem)
-            id: uuidv4(), // Tilldelar ett unikt ID
-            x: position.x, // Ställer in den nya positionen
-            y: position.y,
-            rotation: 0,
-            scaleX: 1,
-            scaleY: 1,
-            item: item, // Behåller en referens till det ursprungliga biblioteksobjektet
-            ...extraProps // Tillämpar eventuella extra egenskaper
+            id: uuidv4(), rotation: 0, scaleX: 1, scaleY: 1,
+            ...baseProps,
+            type: item.type, item: item, quantity: 1, 
+            x: position.x, y: position.y,
+            ...extraProps,
         };
-        setObjects(prev => [...prev, newObject]);
+        setObjects([...objects, newObject], true);
     };
 
-    const updateObject = (id: string, attrs: Partial<APDObject>) => {
-        setObjects(prev => prev.map(obj => obj.id === id ? { ...obj, ...attrs } : obj));
+    // KORRIGERING: Enad funktion som hanterar både omedelbara och debouncade uppdateringar.
+    const updateObject = (id: string, attrs: Partial<APDObject>, immediate: boolean) => {
+        const newObjects = objects.map(obj => (obj.id === id ? { ...obj, ...attrs } : obj));
+        setObjects(newObjects, immediate);
     };
+    
+    const handleRemoveObjectFromLegend = (id: string) => removeObjects([id]);
+    const handleUpdateObjectQuantity = (id: string, quantity: number) => updateObject(id, { quantity }, true);
     
     const resetProjectForNewBackground = (newBackground: { url: string; width: number; height: number; }) => {
         setBackground(newBackground);
-        setObjects([]);
         resetHistory([]);
         setProjectInfo(defaultProjectInfo);
         setCustomLegendItems(defaultCustomLegend);
@@ -121,33 +110,35 @@ const App: React.FC = () => {
     const handleFile = async (file: File) => {
         const toastId = toast.loading(`Laddar ${file.name}...`);
         try {
-            if (file.name.endsWith('.apd')) {
-                const data = await loadAPD(file);
-                setProjectInfo(data.projectInfo);
-                setBackground(data.background);
-                setObjects(data.objects);
-                setCustomLegendItems(data.customLegendItems);
-                resetHistory(data.objects);
-                toast.success('Projektet har laddats!');
-            } else if (file.type.startsWith('image/')) {
+            let data;
+            if (file.name.endsWith('.apd')) data = await loadAPD(file);
+            else if (file.type.startsWith('image/')) {
                 const url = URL.createObjectURL(file);
                 const img = new Image();
                 img.onload = () => {
                     resetProjectForNewBackground({ url, width: img.width, height: img.height });
                     toast.success('Bilden har laddats!');
                 };
-                img.onerror = () => {
-                    toast.error('Kunde inte ladda bildfilen.');
-                    URL.revokeObjectURL(url); 
-                }
+                img.onerror = () => { toast.error('Kunde inte ladda bildfilen.'); URL.revokeObjectURL(url); }
                 img.src = url;
+                toast.dismiss(toastId);
+                return;
             } else if (file.type === 'application/pdf') {
                 const bg = await handlePDF(file);
                 resetProjectForNewBackground(bg);
                 toast.success('PDF-filen har laddats!');
+                toast.dismiss(toastId);
+                return;
             } else {
-                toast.error('Filtypen stöds inte. Välj en .apd, bild- eller PDF-fil.');
+                throw new Error('Filtypen stöds inte. Välj en .apd, bild- eller PDF-fil.');
             }
+            
+            setProjectInfo(data.projectInfo);
+            setBackground(data.background);
+            resetHistory(data.objects);
+            setCustomLegendItems(data.customLegendItems);
+            toast.success('Projektet har laddats!');
+
         } catch (error) {
             console.error(error);
             toast.error(`Kunde inte ladda filen: ${error instanceof Error ? error.message : 'Okänt fel'}`);
@@ -163,7 +154,6 @@ const App: React.FC = () => {
               <div className='flex gap-2'>
                 <button className='bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded w-full' onClick={() => {
                     setBackground(null);
-                    setObjects([]);
                     resetHistory([]);
                     setProjectInfo(defaultProjectInfo);
                     setCustomLegendItems(defaultCustomLegend);
@@ -180,20 +170,11 @@ const App: React.FC = () => {
             </span>
           ), { duration: 6000 });
     };
-    
-    const updateObjectWithSnapshot = (id: string, attrs: Partial<APDObject>) => {
-        snapshot();
-        updateObject(id, attrs);
-    }
 
     return (
         <DndProvider backend={HTML5Backend}>
-            <div 
-                className="flex flex-col h-screen bg-slate-900 text-white font-sans overflow-hidden"
-                ref={mainContainerRef}
-            >
+            <div className="flex flex-col h-screen bg-slate-900 text-white font-sans overflow-hidden" ref={mainContainerRef}>
                 <Toaster position="bottom-center" toastOptions={{ className: 'bg-slate-700 text-white', duration: 4000 }} />
-                
                 <Header 
                     stageRef={stageRef}
                     mainContainerRef={mainContainerRef}
@@ -209,60 +190,52 @@ const App: React.FC = () => {
                     show3D={show3D}
                     setShow3D={setShow3D}
                 />
-
                 <div className="flex flex-1 overflow-hidden">
                     <Library 
-                        isOpen={isLibraryOpen}
-                        setPendingItem={setPendingItem}
-                        setDrawingState={setDrawingState}
+                        isOpen={isLibraryOpen} 
+                        setPendingItem={setPendingItem} 
+                        setDrawingState={setDrawingState} 
                     />
-
                     <div className="flex-1 flex flex-col relative">
-                        {show3D ? (
-                            <ThreeDView 
-                                objects={objects}
-                                background={background}
-                                libraryCategories={LIBRARY_CATEGORIES}
-                                selectedId={selectedIds.length > 0 ? selectedIds[0] : null}
-                                onSelect={(id) => setSelectedIds(id ? [id] : [])}
-                                onObjectChange={updateObject}
-                                onSnapshot={snapshot}
-                            />
-                        ) : (
-                            <CanvasPanel 
-                                stageRef={stageRef}
-                                objects={objects}
-                                background={background}
-                                selectedIds={selectedIds}
-                                setSelectedIds={setSelectedIds}
-                                checkDeselect={checkDeselect}
-                                addObject={addObject}
-                                updateObject={updateObjectWithSnapshot}
-                                removeObjects={removeObjects}
-                                drawingState={drawingState}
-                                setDrawingState={setDrawingState}
-                                pendingItem={pendingItem}
-                                setPendingItem={setPendingItem}
-                                onSnapshot={snapshot}
-                                handleFile={handleFile}
-                                undo={undo}
-                                redo={redo}
-                                canUndo={canUndo}
-                                canRedo={canRedo}
-                            />
-                        )}
+                        {show3D ? <ThreeDView 
+                                    objects={objects}
+                                    background={background}
+                                    libraryCategories={LIBRARY_CATEGORIES}
+                                    selectedId={selectedIds.length > 0 ? selectedIds[0] : null}
+                                    onSelect={(id) => setSelectedIds(id ? [id] : [])}
+                                    onObjectChange={(id, attrs) => updateObject(id, attrs, false)} // Debounced update
+                                />
+                               : <CanvasPanel 
+                                    stageRef={stageRef}
+                                    objects={objects}
+                                    background={background}
+                                    selectedIds={selectedIds}
+                                    setSelectedIds={setSelectedIds}
+                                    checkDeselect={checkDeselect}
+                                    addObject={addObject}
+                                    updateObject={(id, attrs) => updateObject(id, attrs, true)} // Immediate update
+                                    removeObjects={removeObjects}
+                                    drawingState={drawingState}
+                                    setDrawingState={setDrawingState}
+                                    pendingItem={pendingItem}
+                                    setPendingItem={setPendingItem}
+                                    handleFile={handleFile}
+                                    undo={undo}
+                                    redo={redo}
+                                    canUndo={canUndo}
+                                    canRedo={canRedo}
+                                />}
                     </div>
-                    
-                    {background && (
-                        <Legend 
-                            isOpen={isLegendOpen}
-                            projectInfo={projectInfo}
-                            setProjectInfo={setProjectInfo}
-                            objects={objects}
-                            customItems={customLegendItems}
-                            setCustomItems={setCustomLegendItems} 
-                        />
-                    )}
+                    {background && <Legend 
+                                    isOpen={isLegendOpen}
+                                    projectInfo={projectInfo}
+                                    setProjectInfo={setProjectInfo}
+                                    objects={objects}
+                                    customItems={customLegendItems}
+                                    setCustomItems={setCustomLegendItems}
+                                    onRemoveObject={handleRemoveObjectFromLegend}
+                                    onUpdateObject={handleUpdateObjectQuantity}
+                                 />}
                 </div>
             </div>
         </DndProvider>

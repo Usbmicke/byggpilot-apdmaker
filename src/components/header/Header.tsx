@@ -1,10 +1,54 @@
 
 import React, { useRef, useState } from 'react';
 import toast from 'react-hot-toast';
-import { APDObject, CustomLegendItem, ProjectInfo } from '../../types/index';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+import { APDObject, CustomLegendItem, ProjectInfo, isSymbol } from '../../types/index';
 import Modal from '../shared/Modal';
 import '../../styles/ThreeDButton.css';
 import '../../styles/SparkleButton.css';
+
+// Helper to render the legend to a hidden div for capturing
+const renderLegendToHtml = (projectInfo: ProjectInfo, objects: APDObject[], customItems: CustomLegendItem[]): string => {
+    const aggregatedSymbols = objects.reduce((acc, obj) => {
+        if (isSymbol(obj.type)) {
+            if (!acc[obj.item.id]) {
+                acc[obj.item.id] = { ...obj, quantity: 0 };
+            }
+            acc[obj.item.id].quantity += obj.quantity;
+        }
+        return acc;
+    }, {} as { [key: string]: APDObject });
+
+    const symbolHtml = Object.values(aggregatedSymbols).map(obj => `
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 5px; font-size: 10px;">
+            <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">${obj.item.name}</span>
+            <span style="font-weight: bold;">${obj.quantity} st</span>
+        </div>
+    `).join('');
+
+    const customHtml = customItems.map(item => `
+        <div style="display: flex; align-items: center; padding: 5px; font-size: 10px;">
+            <div style="width: 12px; height: 12px; border-radius: 50%; background-color: ${item.color}; margin-right: 8px;"></div>
+            <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">${item.name}</span>
+        </div>
+    `).join('');
+
+    return `
+      <div style="font-family: Helvetica, Arial, sans-serif; color: #333; background-color: #fff; padding: 15px; border: 1px solid #ddd; border-radius: 5px;">
+          <h2 style="font-size: 16px; font-weight: bold; margin: 0 0 10px; padding-bottom: 5px; border-bottom: 1px solid #ccc;">Projektinformation</h2>
+          <div style="font-size: 11px; margin-bottom: 15px;">
+              <p style="margin: 2px 0;"><strong>Företag:</strong> ${projectInfo.company || '-'}</p>
+              <p style="margin: 2px 0;"><strong>Projektnamn:</strong> ${projectInfo.projectName || '-'}</p>
+              <p style="margin: 2px 0;"><strong>Projekt-ID:</strong> ${projectInfo.projectId || '-'}</p>
+          </div>
+          <h2 style="font-size: 16px; font-weight: bold; margin: 15px 0 10px; padding-bottom: 5px; border-bottom: 1px solid #ccc;">Objektförteckning</h2>
+          ${symbolHtml}
+          ${customHtml}
+      </div>
+    `;
+};
+
 
 interface HeaderProps {
     stageRef: React.RefObject<any>;
@@ -43,7 +87,7 @@ const Header: React.FC<HeaderProps> = ({
             return;
         }
         const projectData = {
-            version: '1.1',
+            version: '1.2',
             projectInfo,
             background,
             objects,
@@ -66,14 +110,7 @@ const Header: React.FC<HeaderProps> = ({
     };
 
     const handleSaveImage = () => {
-        if (show3D) {
-            toast.error('Kan för närvarande inte exportera bild från 3D-vyn.');
-            return;
-        }
-        if (!stageRef.current) {
-            toast.error('Kunde inte exportera bild. Scenen är inte redo.');
-            return;
-        }
+        if (show3D || !stageRef.current) return toast.error('Fel vid bildexport.');
         const dataURL = stageRef.current.toDataURL({ pixelRatio: 2 });
         const link = document.createElement('a');
         const fileName = projectInfo.projectName ? `${projectInfo.projectName.replace(/ /g, '_')}.png` : 'apd-plan.png';
@@ -84,6 +121,78 @@ const Header: React.FC<HeaderProps> = ({
         document.body.removeChild(link);
         setIsExportMenuOpen(false);
         toast.success('Bilden har sparats!');
+    };
+
+    const handlePrint = async () => {
+        if (show3D || !stageRef.current || !background) {
+            toast.error('Kan inte skriva ut. Se till att du är i 2D-vyn och har en ritning laddad.');
+            return;
+        }
+        const toastId = toast.loading('Förbereder utskrift...');
+
+        try {
+            const stage = stageRef.current;
+            const container = document.createElement('div');
+            container.style.position = 'absolute';
+            container.style.left = '-9999px';
+            container.style.width = '250px';
+            document.body.appendChild(container);
+
+            container.innerHTML = renderLegendToHtml(projectInfo, objects, customLegendItems);
+
+            const [canvasImage, legendImage] = await Promise.all([
+                stage.toDataURL({ pixelRatio: 3 }),
+                html2canvas(container, { scale: 2, backgroundColor: null })
+            ]);
+
+            document.body.removeChild(container);
+
+            toast.loading('Skapar PDF...', { id: toastId });
+
+            const pdf = new jsPDF({
+                orientation: 'landscape',
+                unit: 'mm',
+                format: 'a3'
+            });
+
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const margin = 10;
+
+            const legendCanvas = legendImage;
+            const legendWidth = 60;
+            const legendHeight = (legendCanvas.height * legendWidth) / legendCanvas.width;
+            
+            const drawingAreaWidth = pdfWidth - legendWidth - margin * 2;
+            const canvasAspectRatio = background.width / background.height;
+            let canvasWidth = drawingAreaWidth;
+            let canvasHeight = canvasWidth / canvasAspectRatio;
+            
+            if (canvasHeight > pdfHeight - margin * 2) {
+                canvasHeight = pdfHeight - margin * 2;
+                canvasWidth = canvasHeight * canvasAspectRatio;
+            }
+            
+            pdf.setFontSize(24);
+            pdf.setFont('Helvetica', 'bold');
+            pdf.text('APD-PLAN', margin, margin + 5);
+
+            pdf.addImage(canvasImage, 'PNG', margin, margin + 15, canvasWidth, canvasHeight);
+
+            const legendX = pdfWidth - legendWidth - margin;
+            pdf.addImage(legendImage, 'PNG', legendX, margin + 15, legendWidth, legendHeight);
+
+            const fileName = projectInfo.projectName ? `${projectInfo.projectName.replace(/ /g, '_')}_APD.pdf` : 'apd-plan.pdf';
+            pdf.save(fileName);
+
+            toast.success('PDF skapad!', { id: toastId });
+
+        } catch (error) {
+            console.error('Error printing PDF:', error);
+            toast.error('Kunde inte skapa PDF.', { id: toastId });
+        } finally {
+            setIsExportMenuOpen(false);
+        }
     };
 
     const confirmClearProject = () => {
@@ -124,7 +233,7 @@ const Header: React.FC<HeaderProps> = ({
                         {isExportMenuOpen && (
                             <div onMouseLeave={() => setIsExportMenuOpen(false)} className="absolute right-0 top-full mt-2 w-56 bg-slate-800 border border-slate-600 rounded-lg shadow-xl z-50 animate-fade-in-down">
                                 <button onClick={handleSaveImage} className="w-full text-left px-4 py-3 text-sm text-slate-200 hover:bg-slate-700 flex items-center gap-3">Spara som Bild (.png)</button>
-                                <button disabled className="w-full text-left px-4 py-3 text-sm text-slate-500 cursor-not-allowed flex items-center gap-3">Spara som PDF (Snart)</button>
+                                <button onClick={handlePrint} className="w-full text-left px-4 py-3 text-sm text-slate-200 hover:bg-slate-700 flex items-center gap-3">Spara som PDF (A3)</button>
                                 <div className="border-t border-slate-700 my-1"></div>
                                 <button onClick={handleSaveProject} className="w-full text-left px-4 py-3 text-sm text-slate-200 hover:bg-slate-700 flex items-center gap-3">Spara Projektfil (.apd)</button>
                             </div>
@@ -148,7 +257,7 @@ const Header: React.FC<HeaderProps> = ({
                     </div>
                 </div>
                 
-                <button onClick={toggleLegend} disabled={!background} className="hidden md:flex p-2 rounded-md hover:bg-slate-700 text-slate-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed" title="Visa/Dölj Projektinformation och Förteckning">
+                 <button onClick={toggleLegend} disabled={!background} className="p-2 rounded-md hover:bg-slate-700 text-slate-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed md:flex" title="Visa/Dölj Projektinformation och Förteckning">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
                 </button>
             </div>

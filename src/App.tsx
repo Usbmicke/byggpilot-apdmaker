@@ -6,9 +6,9 @@ import toast, { Toaster } from 'react-hot-toast';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 
-import { APDObject, LibraryItem, ProjectInfo, DrawingTool, CustomLegendItem } from './types';
+import { APDObject, LibraryItem, ProjectInfo, DrawingTool, CustomLegendItem, isTextTool } from './types';
 import { defaultProjectInfo, defaultCustomLegend } from './utils/defaults';
-import { useHistory, UseHistoryReturn } from './hooks/useHistory';
+import { useHistory } from './hooks/useHistory';
 
 import Header from './components/header/Header';
 import Library from './components/library/LibraryPanel';
@@ -23,7 +23,6 @@ const App: React.FC = () => {
     const stageRef = useRef<any>(null);
     const mainContainerRef = useRef<HTMLDivElement>(null);
 
-    // KORRIGERING: Använder den nya, mer robusta useHistory-hooken.
     const { state: objects, setState: setObjects, undo, redo, canUndo, canRedo, resetHistory } = useHistory<APDObject[]>([]);
     
     const [background, setBackground] = useState<{ url: string; width: number; height: number; } | null>(null);
@@ -45,7 +44,6 @@ const App: React.FC = () => {
         }
     }, [background?.url]);
 
-    // KORRIGERING: Anpassad till den nya hooken. Anropar setState med immediate: true.
     const removeObjects = useCallback((ids: string[]) => {
         if (ids.length === 0) return;
         setObjects(objects.filter(obj => !ids.includes(obj.id)), true);
@@ -71,15 +69,16 @@ const App: React.FC = () => {
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [undo, redo, selectedIds, removeObjects, objects]);
+    }, [undo, redo, selectedIds, removeObjects]);
 
     const checkDeselect = (e: any) => {
-        if (e.target === e.target.getStage()) setSelectedIds([]);
+        const clickedOnEmpty = e.target === e.target.getStage();
+        if (clickedOnEmpty) setSelectedIds([]);
     };
 
-    // KORRIGERING: Anpassad till den nya hooken. Anropar setState med immediate: true.
-    const addObject = (item: LibraryItem, position: {x: number, y: number}, extraProps: Partial<APDObject> = {}) => {
+    const addObject = useCallback((item: LibraryItem, position: {x: number, y: number}, extraProps: Partial<APDObject> = {}) => {
         const baseProps = { ...item.initialProps, width: item.width || item.initialProps?.width || 50, height: item.height || item.initialProps?.height || 50 };
+        
         const newObject: APDObject = {
             id: uuidv4(), rotation: 0, scaleX: 1, scaleY: 1,
             ...baseProps,
@@ -87,17 +86,55 @@ const App: React.FC = () => {
             x: position.x, y: position.y,
             ...extraProps,
         };
-        setObjects([...objects, newObject], true);
-    };
 
-    // KORRIGERING: Enad funktion som hanterar både omedelbara och debouncade uppdateringar.
-    const updateObject = (id: string, attrs: Partial<APDObject>, immediate: boolean) => {
+        // KORRIGERING: Sätter en synlig standardfärg för textobjekt
+        if (isTextTool(newObject.type)) {
+            newObject.fill = newObject.fill || '#000000';
+            newObject.text = newObject.text || 'Text';
+            newObject.fontSize = newObject.fontSize || 24;
+            newObject.padding = newObject.padding || 10;
+            newObject.width = newObject.width || 150;
+        }
+
+        setObjects([...objects, newObject], true);
+    }, [objects, setObjects]);
+
+    const updateObject = useCallback((id: string, attrs: Partial<APDObject>, immediate: boolean) => {
         const newObjects = objects.map(obj => (obj.id === id ? { ...obj, ...attrs } : obj));
         setObjects(newObjects, immediate);
+    }, [objects, setObjects]);
+
+    const handleUpdateGroupQuantity = (itemId: string, newQuantity: number) => {
+        const groupObjects = objects.filter(obj => obj.item.id === itemId);
+        const currentTotal = groupObjects.reduce((sum, obj) => sum + obj.quantity, 0);
+        const diff = newQuantity - currentTotal;
+
+        if (diff > 0) {
+             // Öka kvantiteten på det sista objektet i gruppen
+            const lastObject = groupObjects[groupObjects.length - 1];
+            if (lastObject) {
+                updateObject(lastObject.id, { quantity: lastObject.quantity + diff }, true);
+            }
+        } else if (diff < 0) {
+            // Minska kvantiteten eller ta bort objekt
+            let remainingToRemove = -diff;
+            const updatedObjects = [...objects];
+
+            for (let i = groupObjects.length - 1; i >= 0 && remainingToRemove > 0; i--) {
+                const obj = groupObjects[i];
+                if (obj.quantity <= remainingToRemove) {
+                    remainingToRemove -= obj.quantity;
+                    const index = updatedObjects.findIndex(o => o.id === obj.id);
+                    if (index !== -1) updatedObjects.splice(index, 1);
+                } else {
+                    const index = updatedObjects.findIndex(o => o.id === obj.id);
+                    if (index !== -1) updatedObjects[index] = { ...obj, quantity: obj.quantity - remainingToRemove };
+                    remainingToRemove = 0;
+                }
+            }
+            setObjects(updatedObjects, true);
+        }
     };
-    
-    const handleRemoveObjectFromLegend = (id: string) => removeObjects([id]);
-    const handleUpdateObjectQuantity = (id: string, quantity: number) => updateObject(id, { quantity }, true);
     
     const resetProjectForNewBackground = (newBackground: { url: string; width: number; height: number; }) => {
         setBackground(newBackground);
@@ -213,7 +250,7 @@ const App: React.FC = () => {
                                     setSelectedIds={setSelectedIds}
                                     checkDeselect={checkDeselect}
                                     addObject={addObject}
-                                    updateObject={(id, attrs) => updateObject(id, attrs, true)} // Immediate update
+                                    updateObject={updateObject}
                                     removeObjects={removeObjects}
                                     drawingState={drawingState}
                                     setDrawingState={setDrawingState}
@@ -233,8 +270,8 @@ const App: React.FC = () => {
                                     objects={objects}
                                     customItems={customLegendItems}
                                     setCustomItems={setCustomLegendItems}
-                                    onRemoveObject={handleRemoveObjectFromLegend}
-                                    onUpdateObject={handleUpdateObjectQuantity}
+                                    onRemoveObject={removeObjects}
+                                    onUpdateObject={handleUpdateGroupQuantity}
                                  />}
                 </div>
             </div>

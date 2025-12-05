@@ -1,25 +1,26 @@
 
-import React, { useState } from 'react';
-import { APDObject, CustomLegendItem, ProjectInfo } from '../../types/index';
+import React, { useState, useMemo } from 'react';
+import { APDObject, CustomLegendItem, ProjectInfo, isSymbol } from '../../types/index';
 import { findIcon } from '../../utils/findIcon';
 
-const ObjectRow = React.memo(({ obj, onRemove, onUpdate }: { obj: APDObject, onRemove: (id: string) => void, onUpdate: (id: string, newQuantity: number) => void }) => {
-    const [quantity, setQuantity] = useState(obj.quantity.toString());
+// KORRIGERING: Komponenten tar nu emot en aggregerad grupp av objekt.
+const ObjectRow = React.memo(({ group, onRemove, onUpdate }: { group: APDObject, onRemove: (itemId: string) => void, onUpdate: (itemId: string, newQuantity: number) => void }) => {
+    const [quantity, setQuantity] = useState(group.quantity.toString());
 
     const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value;
         setQuantity(val);
         const num = parseInt(val, 10);
         if (!isNaN(num) && num > 0) {
-            onUpdate(obj.id, num);
+            onUpdate(group.item.id, num);
         }
     };
 
     return (
         <div className="flex items-center justify-between p-2 bg-slate-800 rounded-lg border border-slate-700 shadow-sm">
             <div className="flex items-center min-w-0">
-                <div className="w-6 h-6 mr-3 text-slate-400 flex-shrink-0">{findIcon(obj.type)}</div>
-                <span className="text-sm font-medium text-slate-300 truncate" title={obj.item.name}>{obj.item.name}</span>
+                <div className="w-6 h-6 mr-3 text-slate-400 flex-shrink-0">{findIcon(group.type)}</div>
+                <span className="text-sm font-medium text-slate-300 truncate" title={group.item.name}>{group.item.name}</span>
             </div>
             <div className="flex items-center">
                 <input 
@@ -27,13 +28,13 @@ const ObjectRow = React.memo(({ obj, onRemove, onUpdate }: { obj: APDObject, onR
                     min="1"
                     value={quantity}
                     onChange={handleQuantityChange}
-                    onBlur={() => setQuantity(obj.quantity.toString())}
+                    onBlur={() => setQuantity(group.quantity.toString())} // Återställ om ogiltigt värde lämnas
                     className="w-16 p-1 text-sm bg-slate-700 border border-slate-600 rounded-md text-slate-200 text-center"
                 />
                 <button 
-                    onClick={() => onRemove(obj.id)}
+                    onClick={() => onRemove(group.item.id)} // Tar bort alla objekt av denna typ
                     className="ml-2 p-1 text-red-500 hover:text-red-400 rounded-full hover:bg-slate-700"
-                    aria-label="Ta bort objekt"
+                    aria-label="Ta bort alla av denna typ"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                 </button>
@@ -49,13 +50,56 @@ interface LegendPanelProps {
     isOpen: boolean;
     projectInfo: ProjectInfo;
     setProjectInfo: (info: ProjectInfo) => void;
-    onRemoveObject: (id: string) => void;
+    onRemoveObject: (ids: string[]) => void; // Ändrad för att acceptera en array av ID:n
     onUpdateObject: (id: string, quantity: number) => void;
 }
 
 const LegendPanel: React.FC<LegendPanelProps> = ({ objects, customItems, setCustomItems, isOpen, projectInfo, setProjectInfo, onRemoveObject, onUpdateObject }) => {
     const [newItemName, setNewItemName] = useState('');
     const [newItemColor, setNewItemColor] = useState('#ffffff');
+
+    // KORRIGERING: Aggregerar symboler för att visa en rad per typ med totalt antal.
+    const aggregatedSymbols = useMemo(() => {
+        const symbolMap = new Map<string, APDObject>();
+        objects.forEach(obj => {
+            if (isSymbol(obj.type)) {
+                const existing = symbolMap.get(obj.item.id);
+                if (existing) {
+                    existing.quantity += obj.quantity;
+                } else {
+                    // Skapa en kopia för att inte mutera originalobjektet
+                    symbolMap.set(obj.item.id, { ...obj });
+                }
+            }
+        });
+        return Array.from(symbolMap.values());
+    }, [objects]);
+
+    // KORRIGERING: Funktion för att ta bort alla objekt av en viss item.id
+    const handleRemoveGroup = (itemId: string) => {
+        const idsToRemove = objects.filter(obj => obj.item.id === itemId).map(obj => obj.id);
+        onRemoveObject(idsToRemove);
+    };
+
+    // KORRIGERING: Funktion för att uppdatera alla objekt av en viss item.id
+    const handleUpdateGroupQuantity = (itemId: string, newQuantity: number) => {
+        const groupObjects = objects.filter(obj => obj.item.id === itemId);
+        const currentTotal = groupObjects.reduce((sum, obj) => sum + obj.quantity, 0);
+        
+        // Om den nya kvantiteten är densamma, gör ingenting.
+        if (newQuantity === currentTotal) return;
+
+        // För enkelhetens skull, ta bort alla och lägg till en med den nya kvantiteten.
+        // Detta är mer robust än att försöka justera individuella objekt.
+        const idsToRemove = groupObjects.map(obj => obj.id);
+        onRemoveObject(idsToRemove);
+        
+        // Hitta det första objektet att använda som mall
+        const templateObject = groupObjects[0];
+        if (templateObject) {
+            onUpdateObject(templateObject.id, newQuantity); // Skapar ett nytt objekt med den uppdaterade kvantiteten
+        }
+    };
 
     const handleAddCustomItem = () => {
         if (newItemName.trim()) {
@@ -71,8 +115,6 @@ const LegendPanel: React.FC<LegendPanelProps> = ({ objects, customItems, setCust
     const handleInfoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setProjectInfo({ ...projectInfo, [e.target.name]: e.target.value });
     }
-
-    const symbolObjects = objects.filter(obj => !['pen', 'walkway', 'fence', 'construction-traffic', 'text'].includes(obj.type));
 
     return (
         <aside 
@@ -101,8 +143,8 @@ const LegendPanel: React.FC<LegendPanelProps> = ({ objects, customItems, setCust
                 <h2 className="text-xl font-bold border-y border-slate-700 py-2 my-4 text-slate-100 whitespace-nowrap">Objektförteckning</h2>
 
                 <div className="space-y-2 mb-6">
-                    {symbolObjects.map(obj => (
-                        <ObjectRow key={obj.id} obj={obj} onRemove={onRemoveObject} onUpdate={onUpdateObject} />
+                    {aggregatedSymbols.map(group => (
+                        <ObjectRow key={group.item.id} group={group} onRemove={handleRemoveGroup} onUpdate={handleUpdateGroupQuantity} />
                     ))}
                 </div>
 

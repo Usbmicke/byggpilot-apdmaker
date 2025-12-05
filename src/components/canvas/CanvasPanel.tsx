@@ -1,11 +1,11 @@
 
 import React, { useRef, useState, useEffect } from 'react';
-import { Stage, Layer, Image as KonvaImage, Line, Transformer, Rect } from 'react-konva';
+import { Stage, Layer, Image as KonvaImage, Line, Transformer, Rect, Group } from 'react-konva';
 import useImage from 'use-image';
 import { useDrop } from 'react-dnd';
 import { NativeTypes } from 'react-dnd-html5-backend';
 
-import { APDObject, LibraryItem, DrawingTool, isTextTool, isLineTool, isPen } from '../../types/index';
+import { APDObject, LibraryItem, DrawingTool, isTextTool, isLineTool, isSymbol } from '../../types/index';
 import DraggableObject from '../draggable/DraggableObject';
 import { ItemTypes } from '../library/LibraryPanel';
 
@@ -53,13 +53,12 @@ interface CanvasPanelProps {
     setSelectedIds: (ids: string[]) => void;
     checkDeselect: (e: any) => void;
     addObject: (item: LibraryItem, position: { x: number; y: number }, extraProps?: Partial<APDObject>) => void;
-    updateObject: (id: string, attrs: Partial<APDObject>) => void;
+    updateObject: (id: string, attrs: Partial<APDObject>, immediate: boolean) => void;
     removeObjects: (ids: string[]) => void; 
     drawingState: { type: DrawingTool; points: number[]; item: LibraryItem; } | null;
     setDrawingState: React.Dispatch<React.SetStateAction<{ type: DrawingTool; points: number[]; item: LibraryItem; } | null>>;
     pendingItem: LibraryItem | null;
     setPendingItem: (item: LibraryItem | null) => void;
-    onSnapshot: () => void; 
     handleFile: (file: File) => void;
     canUndo: boolean;
     canRedo: boolean;
@@ -69,7 +68,7 @@ interface CanvasPanelProps {
 
 const CanvasPanel: React.FC<CanvasPanelProps> = ({ 
     stageRef, objects, background, selectedIds, setSelectedIds, checkDeselect, addObject, updateObject, 
-    removeObjects, drawingState, setDrawingState, pendingItem, setPendingItem, onSnapshot, handleFile, 
+    removeObjects, drawingState, setDrawingState, pendingItem, setPendingItem, handleFile, 
     canUndo, canRedo, undo, redo
 }) => {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -101,11 +100,16 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                     y: (offset.y - stageRect.top - stage.y()) / stage.scaleY(),
                 };
 
-                addObject(item, relativePos);
+                // KORRIGERING: Använder den nya, korrekta isSymbol-funktionen.
+                if (isSymbol(item.type)) {
+                    addObject(item, relativePos);
+                } else {
+                    setPendingItem(item);
+                }
             }
         },
         collect: (monitor) => ({ isOver: monitor.isOver(), canDrop: monitor.canDrop(), draggedItemType: monitor.getItemType() }),
-    }), [stageRef, handleFile, addObject]);
+    }), [stageRef, handleFile, addObject, setPendingItem]);
 
     useEffect(() => {
         if (containerRef.current) drop(containerRef.current);
@@ -146,11 +150,25 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
             trRef.current.getLayer()?.batchDraw();
         }
     }, [selectedIds, objects]);
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Enter' && drawingState && drawingState.points.length > 2) {
+                e.preventDefault();
+                addObject(drawingState.item, { x: 0, y: 0 }, { points: [...drawingState.points] });
+                setDrawingState(null);
+                setTempLinePoints([]);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [drawingState, addObject, setDrawingState]);
     
     const getRelativePointerPosition = (stage: any) => {
         const pos = stage.getPointerPosition();
+        if (!pos) return { x: 0, y: 0 };
         const transform = stage.getAbsoluteTransform().copy().invert();
-        return pos ? transform.point(pos) : { x: 0, y: 0 };
+        return transform.point(pos);
     };
 
     const handleObjectClick = (e: any) => {
@@ -167,7 +185,11 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         if (e.target !== e.target.getStage()) return;
         const pos = getRelativePointerPosition(e.target.getStage());
         if (pendingItem) {
-            addObject(pendingItem, pos, isTextTool(pendingItem.type) ? { text: 'Text' } : {});
+             if (isLineTool(pendingItem.type)) {
+                setDrawingState({ type: pendingItem.type, points: [pos.x, pos.y], item: pendingItem });
+            } else if (isTextTool(pendingItem.type)) {
+                addObject(pendingItem, pos);
+            }
             setPendingItem(null);
         } else if (drawingState) {
             setDrawingState(prev => prev ? { ...prev, points: [...prev.points, pos.x, pos.y] } : null);
@@ -175,7 +197,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     };
     
     const handleStageMouseDown = (e: any) => {
-        if (e.target !== stageRef.current || e.evt.button !== 0) return;
+        if (e.target !== stageRef.current || e.evt.button !== 0 || drawingState || pendingItem) return;
         const pos = getRelativePointerPosition(e.target.getStage());
         setSelectionBox({ x: pos.x, y: pos.y, width: 0, height: 0, visible: true });
         if (!e.evt.shiftKey) checkDeselect(e);
@@ -211,9 +233,8 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     const handleContextMenu = (e: any) => {
         e.evt.preventDefault();
         if (drawingState && drawingState.points.length > 2) {
-            onSnapshot();
-            addObject(drawingState.item, { x: 0, y: 0 }, { points: tempLinePoints });
-        } 
+            addObject(drawingState.item, { x: 0, y: 0 }, { points: [...drawingState.points] });
+        }
         setDrawingState(null);
         setTempLinePoints([]);
     };
@@ -234,9 +255,11 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         setEditingText(obj);
     };
 
-    const handleTextareaBlur = () => {
-        onSnapshot();
-        setEditingText(null);
+    const handleTextareaBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+        if (editingText) {
+            updateObject(editingText.id, { text: e.target.value }, true);
+            setEditingText(null);
+        }
     };
 
     const getTextareaStyle = (node: any): React.CSSProperties => {
@@ -245,15 +268,16 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         const stageBox = stageRef.current.container().getBoundingClientRect();
         return {
             position: 'absolute', top: `${stageBox.top + textPos.y}px`, left: `${stageBox.left + textPos.x}px`,
-            width: `${node.width() * node.scaleX() - node.padding() * 2}px`, height: `${node.height() * node.scaleY() - node.padding() * 2 + 5}px`,
+            width: `${node.width() * node.scaleX()}px`, height: `${node.height() * node.scaleY() + 5}px`,
             fontSize: `${node.fontSize() * node.scaleY()}px`, lineHeight: node.lineHeight(), fontFamily: node.fontFamily(),
             transform: `rotate(${node.rotation()}deg)`, color: node.fill(),
-            border: 'none', padding: '0px', margin: '0px', background: 'none', outline: 'none', resize: 'none', overflow: 'hidden', transformOrigin: 'left top'
+            border: '2px solid #007bff', borderRadius: '3px', padding: '0px', margin: '0px', background: 'rgba(255, 255, 255, 0.9)', 
+            outline: 'none', resize: 'none', overflow: 'hidden', transformOrigin: 'left top'
         };
     };
 
     return (
-        <div className={`flex-1 relative overflow-hidden bg-slate-900 touch-none ${drawingState ? 'cursor-crosshair' : 'cursor-grab'}`} ref={containerRef}>
+        <div className={`flex-1 relative overflow-hidden bg-slate-900 touch-none ${pendingItem ? 'cursor-copy' : drawingState ? 'cursor-crosshair' : 'cursor-grab'}`} ref={containerRef}>
             {!background ? (
                 <WelcomeScreen onFileSelect={handleFile} />
             ) : (
@@ -272,7 +296,14 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                         </Layer>
                         <Layer>
                             {tempLinePoints.length > 0 && drawingState && (
-                                <Line points={tempLinePoints} stroke={drawingState.item.stroke || '#ff0000'} strokeWidth={drawingState.item.strokeWidth || 5} dash={drawingState.item.dash} tension={isPen(drawingState.item.type) ? 0.5 : 0} lineCap="round" listening={false}/>
+                                <Line 
+                                    points={tempLinePoints} 
+                                    stroke={drawingState.item.stroke || '#ff0000'} 
+                                    strokeWidth={drawingState.item.strokeWidth || 5} 
+                                    dash={drawingState.item.dash}
+                                    tension={isLineTool(drawingState.type) && drawingState.type === 'pen' ? 0.5 : 0} 
+                                    lineCap="round" 
+                                    listening={false}/>
                             )}
                             {objects.map((obj) => (
                                 <DraggableObject
@@ -280,8 +311,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                                     obj={obj}
                                     isSelected={selectedIds.includes(obj.id)}
                                     onSelect={(e) => handleObjectClick(e)}
-                                    onChange={attrs => updateObject(obj.id, attrs)}
-                                    onDragStart={onSnapshot} 
+                                    onChange={(attrs, immediate) => updateObject(obj.id, attrs, immediate)}
                                     onTextDblClick={() => isTextTool(obj.type) && handleTextDblClick(obj)}
                                 />
                             ))}
@@ -293,9 +323,8 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                                     const obj = objects.find(o => o.id === id);
                                     return obj && isLineTool(obj.type);
                                 })}
-                                onTransformStart={onSnapshot}
-                                onTransformEnd={() => {
-                                    trRef.current.nodes().forEach((node: any) => {
+                                onTransformEnd={(e) => {
+                                    e.target.nodes().forEach((node: any) => {
                                         const scaleX = node.scaleX();
                                         const scaleY = node.scaleY();
                                         node.scaleX(1); 
@@ -308,7 +337,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                                             height: node.height() * scaleY,
                                             scaleX: 1,
                                             scaleY: 1,
-                                        });
+                                        }, true);
                                     });
                                 }}
                             />
@@ -318,8 +347,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                     {editingText && (
                         <textarea
                             ref={textEditRef}
-                            value={editingText.text}
-                            onChange={(e) => updateObject(editingText.id, { text: e.target.value })}
+                            defaultValue={editingText.text}
                             onBlur={handleTextareaBlur}
                             style={getTextareaStyle(stageRef.current.findOne('.' + editingText.id))}/>
                     )}

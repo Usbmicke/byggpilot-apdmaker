@@ -8,6 +8,13 @@ export const isLineTool = (tool: string): tool is 'walkway' | 'fence' | 'constru
 
 export const isTextTool = (tool: string): tool is 'text' => tool === 'text';
 
+// KORRIGERING: isSymbol tar nu en sträng (type) som argument för att fungera med LibraryItem.
+export const isSymbol = (type: string): boolean => {
+    if (!type) return false;
+    const knownNonSymbolTypes: string[] = ['walkway', 'fence', 'construction-traffic', 'pen', 'text', 'schakt', 'crane', 'building', 'zone', 'line'];
+    return !knownNonSymbolTypes.includes(type);
+};
+
 export const isSchakt = (obj: APDObject): obj is APDObject & { type: 'schakt' } => obj.type === 'schakt';
 export const isCrane = (obj: APDObject): obj is APDObject & { type: 'crane' } => obj.type === 'crane';
 export const isText = (obj: APDObject): obj is APDObject & { type: 'text' } => obj.type === 'text';
@@ -18,12 +25,6 @@ export const isPen = (obj: APDObject): obj is APDObject & { type: 'pen' } => obj
 export const isBuilding = (obj: APDObject): obj is APDObject & { type: 'building' } => obj.type === 'building';
 export const isZone = (obj: APDObject): obj is APDObject & { type: 'zone' } => obj.type === 'zone';
 export const isLine = (obj: APDObject): obj is APDObject & { type: 'line' } => obj.type === 'line';
-
-export const isSymbol = (obj: APDObject): boolean => {
-    if (!obj || !obj.type) return false;
-    const knownNonSymbolTypes: string[] = ['walkway', 'fence', 'construction-traffic', 'pen', 'text', 'schakt', 'crane', 'building', 'zone', 'line'];
-    return !knownNonSymbolTypes.includes(obj.type);
-};
 
 // Gränssnitt (Interfaces)
 export interface LibraryItem {

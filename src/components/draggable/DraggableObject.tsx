@@ -86,9 +86,9 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSe
                     {...commonProps}
                     ref={shapeRef}
                     points={obj.points}
-                    stroke={obj.item.stroke || '#000000'} 
-                    strokeWidth={obj.item.strokeWidth || 2}
-                    dash={obj.item.dash}
+                    stroke={obj.stroke || '#000000'} // KORRIGERING: Läser från obj.stroke
+                    strokeWidth={obj.strokeWidth || 2} // KORRIGERING: Läser från obj.strokeWidth
+                    dash={obj.dash} // KORRIGERING: Läser från obj.dash
                     tension={obj.type === 'pen' ? 0.5 : 0}
                     lineCap="round"
                     lineJoin="round"

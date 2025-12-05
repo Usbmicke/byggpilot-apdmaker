@@ -6,7 +6,7 @@ import toast, { Toaster } from 'react-hot-toast';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 
-import { APDObject, LibraryItem, ProjectInfo, DrawingTool, CustomLegendItem, isRectTool } from './types';
+import { APDObject, LibraryItem, ProjectInfo, CustomLegendItem, isRectTool } from './types';
 import { defaultProjectInfo, defaultCustomLegend } from './utils/defaults';
 import { useHistory } from './hooks/useHistory';
 
@@ -29,9 +29,7 @@ const App: React.FC = () => {
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [projectInfo, setProjectInfo] = useState<ProjectInfo>(defaultProjectInfo);
     const [customLegendItems, setCustomLegendItems] = useState<CustomLegendItem[]>(defaultCustomLegend);
-    
-    const [drawingState, setDrawingState] = useState<{ type: DrawingTool, points: number[], item: LibraryItem } | null>(null);
-    const [pendingItem, setPendingItem] = useState<LibraryItem | null>(null);
+    const [selectedTool, setSelectedTool] = useState<LibraryItem | null>(null);
     
     const [isLibraryOpen, setIsLibraryOpen] = useState(true);
     const [isLegendOpen, setIsLegendOpen] = useState(true);
@@ -50,40 +48,21 @@ const App: React.FC = () => {
         setSelectedIds(prev => prev.filter(id => !ids.includes(id)));
     }, [objects, setObjects]);
 
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            const activeElement = document.activeElement;
-            if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) return;
-            if (e.ctrlKey || e.metaKey) {
-                if (e.key === 'z') { e.preventDefault(); undo(); }
-                if (e.key === 'y' || (e.key === 'Z' && e.shiftKey)) { e.preventDefault(); redo(); }
-            }
-            if (e.key === 'Escape') {
-                setDrawingState(null);
-                setPendingItem(null);
-                setSelectedIds([]);
-            }
-            if(e.key === 'Delete' || e.key === 'Backspace') {
-                if (selectedIds.length > 0) removeObjects(selectedIds);
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [undo, redo, selectedIds, removeObjects]);
-
     const checkDeselect = (e: any) => {
         const clickedOnEmpty = e.target === e.target.getStage();
         if (clickedOnEmpty) setSelectedIds([]);
     };
 
-    const addObject = useCallback((item: LibraryItem, position: {x: number, y: number}, extraProps: Partial<APDObject> = {}) => {
+    const addObject = useCallback((item: LibraryItem, position: {x: number, y: number}, extraProps: Partial<APDObject> = {}): APDObject => {
         const baseProps = { ...item.initialProps, width: item.width || item.initialProps?.width || 50, height: item.height || item.initialProps?.height || 50 };
         
         let newObject: APDObject = {
             id: uuidv4(), rotation: 0, scaleX: 1, scaleY: 1,
             ...baseProps,
             type: item.type, item: item, quantity: 1, 
-            x: position.x, y: position.y,
+            x: position.x,
+            y: position.y,
+            visible: true,
             ...extraProps,
         };
 
@@ -93,13 +72,15 @@ const App: React.FC = () => {
                 text: newObject.text || 'Text',
                 fill: newObject.fill || '#000000',
                 fontSize: newObject.fontSize || 24,
-                padding: newObject.padding || 10, 
+                padding: newObject.padding || 5,
                 width: newObject.width || 100,
                 height: newObject.height || 30,
+                align: 'center',
             };
         }
-
+        
         setObjects([...objects, newObject], true);
+        return newObject;
     }, [objects, setObjects]);
 
     const updateObject = useCallback((id: string, attrs: Partial<APDObject>, immediate: boolean) => {
@@ -112,31 +93,32 @@ const App: React.FC = () => {
         const currentTotal = groupObjects.reduce((sum, obj) => sum + obj.quantity, 0);
         const diff = newQuantity - currentTotal;
 
+        if (diff === 0) return;
+
+        let newObjects = [...objects];
+
         if (diff > 0) {
-             // Öka kvantiteten på det sista objektet i gruppen
             const lastObject = groupObjects[groupObjects.length - 1];
             if (lastObject) {
-                updateObject(lastObject.id, { quantity: lastObject.quantity + diff }, true);
+                newObjects = objects.map(obj => obj.id === lastObject.id ? { ...obj, quantity: obj.quantity + diff } : obj);
             }
-        } else if (diff < 0) {
-            // Minska kvantiteten eller ta bort objekt
+        } else { // diff < 0
             let remainingToRemove = -diff;
-            const updatedObjects = [...objects];
-
             for (let i = groupObjects.length - 1; i >= 0 && remainingToRemove > 0; i--) {
                 const obj = groupObjects[i];
-                if (obj.quantity <= remainingToRemove) {
-                    remainingToRemove -= obj.quantity;
-                    const index = updatedObjects.findIndex(o => o.id === obj.id);
-                    if (index !== -1) updatedObjects.splice(index, 1);
+                const indexInMainArray = newObjects.findIndex(o => o.id === obj.id);
+                if (indexInMainArray === -1) continue;
+
+                if (newObjects[indexInMainArray].quantity <= remainingToRemove) {
+                    remainingToRemove -= newObjects[indexInMainArray].quantity;
+                    newObjects.splice(indexInMainArray, 1);
                 } else {
-                    const index = updatedObjects.findIndex(o => o.id === obj.id);
-                    if (index !== -1) updatedObjects[index] = { ...obj, quantity: obj.quantity - remainingToRemove };
+                    newObjects[indexInMainArray] = { ...newObjects[indexInMainArray], quantity: newObjects[indexInMainArray].quantity - remainingToRemove };
                     remainingToRemove = 0;
                 }
             }
-            setObjects(updatedObjects, true);
         }
+        setObjects(newObjects, true);
     };
     
     const resetProjectForNewBackground = (newBackground: { url: string; width: number; height: number; }) => {
@@ -233,8 +215,7 @@ const App: React.FC = () => {
                 <div className="flex flex-1 overflow-hidden">
                     <Library 
                         isOpen={isLibraryOpen} 
-                        setPendingItem={setPendingItem} 
-                        setDrawingState={setDrawingState} 
+                        onSelectTool={setSelectedTool}
                     />
                     <div className="flex-1 flex flex-col relative">
                         {show3D ? <ThreeDView 
@@ -244,6 +225,7 @@ const App: React.FC = () => {
                                     selectedId={selectedIds.length > 0 ? selectedIds[0] : null}
                                     onSelect={(id) => setSelectedIds(id ? [id] : [])}
                                     onObjectChange={(id, attrs) => updateObject(id, attrs, false)} // Debounced update
+                                    onSnapshotRequest={() => setObjects(objects, true)}
                                 />
                                : <CanvasPanel 
                                     stageRef={stageRef}
@@ -255,15 +237,13 @@ const App: React.FC = () => {
                                     addObject={addObject}
                                     updateObject={updateObject}
                                     removeObjects={removeObjects}
-                                    drawingState={drawingState}
-                                    setDrawingState={setDrawingState}
-                                    pendingItem={pendingItem}
-                                    setPendingItem={setPendingItem}
                                     handleFile={handleFile}
                                     undo={undo}
                                     redo={redo}
                                     canUndo={canUndo}
                                     canRedo={canRedo}
+                                    selectedTool={selectedTool}
+                                    setSelectedTool={setSelectedTool}
                                 />}
                     </div>
                     {background && <Legend 

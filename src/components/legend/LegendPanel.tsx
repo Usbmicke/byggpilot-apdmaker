@@ -3,7 +3,6 @@ import React, { useState, useMemo } from 'react';
 import { APDObject, CustomLegendItem, ProjectInfo, isSymbol } from '../../types/index';
 import { findIcon } from '../../utils/findIcon';
 
-// KORRIGERING: Komponenten tar nu emot en aggregerad grupp av objekt.
 const ObjectRow = React.memo(({ group, onRemove, onUpdate }: { group: APDObject, onRemove: (itemId: string) => void, onUpdate: (itemId: string, newQuantity: number) => void }) => {
     const [quantity, setQuantity] = useState(group.quantity.toString());
 
@@ -28,11 +27,11 @@ const ObjectRow = React.memo(({ group, onRemove, onUpdate }: { group: APDObject,
                     min="1"
                     value={quantity}
                     onChange={handleQuantityChange}
-                    onBlur={() => setQuantity(group.quantity.toString())} // Återställ om ogiltigt värde lämnas
+                    onBlur={() => setQuantity(group.quantity.toString())}
                     className="w-16 p-1 text-sm bg-slate-700 border border-slate-600 rounded-md text-slate-200 text-center"
                 />
                 <button 
-                    onClick={() => onRemove(group.item.id)} // Tar bort alla objekt av denna typ
+                    onClick={() => onRemove(group.item.id)}
                     className="ml-2 p-1 text-red-500 hover:text-red-400 rounded-full hover:bg-slate-700"
                     aria-label="Ta bort alla av denna typ"
                 >
@@ -50,7 +49,7 @@ interface LegendPanelProps {
     isOpen: boolean;
     projectInfo: ProjectInfo;
     setProjectInfo: (info: ProjectInfo) => void;
-    onRemoveObject: (ids: string[]) => void; // Ändrad för att acceptera en array av ID:n
+    onRemoveObject: (ids: string[]) => void; 
     onUpdateObject: (id: string, quantity: number) => void;
 }
 
@@ -58,7 +57,6 @@ const LegendPanel: React.FC<LegendPanelProps> = ({ objects, customItems, setCust
     const [newItemName, setNewItemName] = useState('');
     const [newItemColor, setNewItemColor] = useState('#ffffff');
 
-    // KORRIGERING: Aggregerar symboler för att visa en rad per typ med totalt antal.
     const aggregatedSymbols = useMemo(() => {
         const symbolMap = new Map<string, APDObject>();
         objects.forEach(obj => {
@@ -67,7 +65,6 @@ const LegendPanel: React.FC<LegendPanelProps> = ({ objects, customItems, setCust
                 if (existing) {
                     existing.quantity += obj.quantity;
                 } else {
-                    // Skapa en kopia för att inte mutera originalobjektet
                     symbolMap.set(obj.item.id, { ...obj });
                 }
             }
@@ -75,29 +72,23 @@ const LegendPanel: React.FC<LegendPanelProps> = ({ objects, customItems, setCust
         return Array.from(symbolMap.values());
     }, [objects]);
 
-    // KORRIGERING: Funktion för att ta bort alla objekt av en viss item.id
     const handleRemoveGroup = (itemId: string) => {
         const idsToRemove = objects.filter(obj => obj.item.id === itemId).map(obj => obj.id);
         onRemoveObject(idsToRemove);
     };
 
-    // KORRIGERING: Funktion för att uppdatera alla objekt av en viss item.id
     const handleUpdateGroupQuantity = (itemId: string, newQuantity: number) => {
         const groupObjects = objects.filter(obj => obj.item.id === itemId);
         const currentTotal = groupObjects.reduce((sum, obj) => sum + obj.quantity, 0);
         
-        // Om den nya kvantiteten är densamma, gör ingenting.
         if (newQuantity === currentTotal) return;
 
-        // För enkelhetens skull, ta bort alla och lägg till en med den nya kvantiteten.
-        // Detta är mer robust än att försöka justera individuella objekt.
         const idsToRemove = groupObjects.map(obj => obj.id);
         onRemoveObject(idsToRemove);
         
-        // Hitta det första objektet att använda som mall
         const templateObject = groupObjects[0];
         if (templateObject) {
-            onUpdateObject(templateObject.id, newQuantity); // Skapar ett nytt objekt med den uppdaterade kvantiteten
+            onUpdateObject(templateObject.id, newQuantity); 
         }
     };
 

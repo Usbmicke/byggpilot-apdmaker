@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useDrag } from 'react-dnd';
 import { LIBRARY_CATEGORIES } from '../../constants/libraryItems';
-import { LibraryItem, isLineTool, DrawingTool } from '../../types/index';
+import { LibraryItem, isLineTool } from '../../types/index';
 
 export const ItemTypes = {
     LIBRARY_ITEM: 'library-item',
@@ -10,33 +10,35 @@ export const ItemTypes = {
 
 interface DraggableLibraryItemProps {
     item: LibraryItem;
-    onSelect: (item: LibraryItem) => void;
+    onClick: (item: LibraryItem) => void;
 }
 
-const DraggableLibraryItem: React.FC<DraggableLibraryItemProps> = ({ item, onSelect }) => {
-    const [{ isDragging }, drag] = useDrag(() => ({
+const DraggableLibraryItem: React.FC<DraggableLibraryItemProps> = ({ item, onClick }) => {
+    const [{ isDragging }, drag, preview] = useDrag(() => ({
         type: ItemTypes.LIBRARY_ITEM,
         item: item,
+        canDrag: !isLineTool(item.type),
         collect: (monitor) => ({
             isDragging: !!monitor.isDragging(),
         }),
     }));
 
     const handleClick = () => {
-        onSelect(item);
+        if (isLineTool(item.type)) {
+            onClick(item);
+        }
     };
 
-    // KORRIGERING: Tydligare title-text för att förklara klick vs. dra
-    const title = isLineTool(item.type) 
-        ? `Klicka för att börja rita ${item.name}`
+    const title = isLineTool(item.type)
+        ? `Klicka för att aktivera ${item.name} och rita`
         : `Dra ut ${item.name} på ritningen`;
 
     return (
         <div
             ref={drag}
             onClick={handleClick}
-            className="flex items-center p-3 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700 hover:border-blue-500 shadow-sm cursor-pointer active:bg-slate-600"
-            style={{ opacity: isDragging ? 0.5 : 1 }}
+            className={`flex items-center p-3 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700 hover:border-blue-500 shadow-sm ${isLineTool(item.type) ? 'cursor-pointer' : 'cursor-grab'}`}
+            style={{ opacity: isDragging ? 0.4 : 1 }}
             title={title}
         >
             <div className="w-8 h-8 mr-3 flex items-center justify-center text-slate-400 bg-slate-900 rounded-md flex-shrink-0 pointer-events-none select-none">
@@ -47,7 +49,7 @@ const DraggableLibraryItem: React.FC<DraggableLibraryItemProps> = ({ item, onSel
     );
 };
 
-const Category: React.FC<{ name: string; items: LibraryItem[]; onSelect: (item: LibraryItem) => void }> = ({ name, items, onSelect }) => {
+const Category: React.FC<{ name: string; items: LibraryItem[]; onSelectTool: (item: LibraryItem) => void }> = ({ name, items, onSelectTool }) => {
     const [isOpen, setIsOpen] = useState(true);
 
     return (
@@ -63,9 +65,9 @@ const Category: React.FC<{ name: string; items: LibraryItem[]; onSelect: (item: 
                 <div className="pt-2 space-y-2">
                     {items.map(item => (
                         <DraggableLibraryItem
-                            key={item.type}
+                            key={item.type} // Använder type som key, förutsatt att de är unika inom en kategori
                             item={item}
-                            onSelect={onSelect}
+                            onClick={onSelectTool}
                         />
                     ))}
                 </div>
@@ -76,24 +78,10 @@ const Category: React.FC<{ name: string; items: LibraryItem[]; onSelect: (item: 
 
 interface LibraryPanelProps {
     isOpen: boolean;
-    setPendingItem: (item: LibraryItem | null) => void;
-    setDrawingState: (state: { type: DrawingTool, points: number[], item: LibraryItem } | null) => void;
+    onSelectTool: (item: LibraryItem) => void;
 }
 
-const LibraryPanel: React.FC<LibraryPanelProps> = ({ isOpen, setPendingItem, setDrawingState }) => {
-    const handleItemSelect = (item: LibraryItem) => {
-        if (isLineTool(item.type)) {
-            setDrawingState({ type: item.type, points: [], item: item });
-            setPendingItem(null);
-            // KORRIGERING: Ge omedelbar feedback genom att ändra muspekaren globalt
-            document.body.style.cursor = 'crosshair';
-        } else {
-            setPendingItem(item);
-            setDrawingState(null);
-            document.body.style.cursor = 'default';
-        }
-    };
-
+const LibraryPanel: React.FC<LibraryPanelProps> = ({ isOpen, onSelectTool }) => {
     return (
         <aside 
              className={`w-80 max-w-full bg-slate-900 text-slate-300 p-4 overflow-y-auto flex-shrink-0 transition-transform duration-300 ease-in-out border-r border-slate-700
@@ -106,7 +94,7 @@ const LibraryPanel: React.FC<LibraryPanelProps> = ({ isOpen, setPendingItem, set
                     key={category.name} 
                     name={category.name} 
                     items={category.items} 
-                    onSelect={handleItemSelect}
+                    onSelectTool={onSelectTool}
                 />
             ))}
         </aside>

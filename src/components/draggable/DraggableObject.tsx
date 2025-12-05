@@ -1,6 +1,6 @@
 
 import React, { useRef, useEffect } from 'react';
-import { Image as KonvaImage, Transformer, Text, Line, Rect } from 'react-konva';
+import { Image as KonvaImage, Transformer, Text, Line, Rect, Group } from 'react-konva';
 import useImage from 'use-image';
 import { APDObject, isSymbol, isRectTool, isLineTool } from '../../types/index';
 
@@ -39,45 +39,64 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSe
             x: node.x(),
             y: node.y(),
             rotation: node.rotation(),
-            width: node.width() * scaleX,
-            height: node.height() * scaleY,
-            scaleX: 1,
-            scaleY: 1,
+            width: Math.max(5, node.width() * scaleX),
+            height: Math.max(5, node.height() * scaleY),
         }, true);
     };
 
     const renderObject = () => {
         const commonProps = {
             id: obj.id,
-            x: obj.x, y: obj.y,
+            name: obj.id, // Used for finding node
+            x: obj.x,
+            y: obj.y,
             rotation: obj.rotation,
-            draggable: true,
-            onClick: onSelect, onTap: onSelect,
+            scaleX: obj.scaleX,
+            scaleY: obj.scaleY,
+            draggable: !isSelected, // Disable drag when selected to use transformer
+            visible: obj.visible ?? true, // Respect the visible prop, default to true
+            onClick: onSelect,
+            onTap: onSelect,
             onDragEnd: handleDragEnd,
             onTransformEnd: handleTransformEnd,
         };
 
         if (isSymbol(obj.type)) {
-            return <KonvaImage {...commonProps} ref={shapeRef} image={image} width={obj.width} height={obj.height} onDblClick={onTextDblClick} />;
+            return <KonvaImage {...commonProps} ref={shapeRef} image={image} width={obj.width} height={obj.height} onDblClick={onTextDblClick} onDblTap={onTextDblClick} />;
         }
         
         if (isRectTool(obj.type)) {
             if (obj.type === 'text') {
                 return (
-                    <Text 
+                    <Group
                         {...commonProps}
                         ref={shapeRef}
-                        text={obj.text}
-                        fontSize={obj.fontSize}
-                        fontFamily={obj.fontFamily}
-                        fill={obj.fill}
                         width={obj.width}
                         height={obj.height}
-                        padding={obj.padding}
-                        align={obj.align}
                         onDblClick={onTextDblClick}
                         onDblTap={onTextDblClick}
-                    />
+                    >
+                        <Rect
+                            width={obj.width}
+                            height={obj.height}
+                            fill="rgba(255, 255, 255, 0.9)"
+                            stroke="#000"
+                            strokeWidth={0.5}
+                            listening={false} // Events should be handled by the Group
+                        />
+                        <Text
+                            text={obj.text}
+                            fontSize={obj.fontSize}
+                            fontFamily={obj.fontFamily}
+                            fill={obj.fill}
+                            width={obj.width}
+                            height={obj.height}
+                            padding={obj.padding}
+                            align={obj.align}
+                            verticalAlign="middle"
+                            listening={false} // Events should be handled by the Group
+                        />
+                    </Group>
                 );
             } else if (obj.type === 'schakt') {
                 return (
@@ -98,6 +117,7 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSe
             return (
                 <Line
                     {...commonProps}
+                    onTransformEnd={undefined} // Lines are not transformable in this way
                     ref={shapeRef}
                     points={obj.points}
                     stroke={obj.stroke || '#000000'} 
@@ -116,14 +136,6 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSe
     return (
         <>
             {renderObject()}
-            {isSelected && (
-                <Transformer
-                    ref={trRef}
-                    boundBoxFunc={(oldBox, newBox) => newBox.width < 5 || newBox.height < 5 ? oldBox : newBox}
-                    anchorStroke="#007bff" anchorFill="#fff" anchorSize={10} borderStroke="#007bff" borderDash={[6, 2]}
-                    rotateEnabled={!isLineTool(obj.type)} 
-                />
-            )}
         </>
     );
 };

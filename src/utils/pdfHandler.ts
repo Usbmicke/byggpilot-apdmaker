@@ -1,9 +1,9 @@
 
 import * as pdfjs from 'pdfjs-dist';
 
-// Dynamiskt sätt sökvägen till workern baserat på den installerade paketsökvägen.
-// Detta är den rekommenderade metoden för Vite.
-pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.js', import.meta.url).toString();
+// KORRIGERING: Ersätter den instabila lokala sökvägen med en robust CDN-länk.
+// Detta garanterar att workern alltid kan hittas, oavsett byggkonfiguration.
+pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
 interface BackgroundImage {
     url: string;

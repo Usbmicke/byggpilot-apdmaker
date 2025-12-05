@@ -29,14 +29,14 @@ const VandplanIcon = () => <SvgIcon svg={VandplanSVG} />;
 export const logistikCategory: { name: string; items: LibraryItem[] } = {
     name: "Logistik",
     items: [
-        { type: 'container-10', name: 'Container 10m³', icon: <Container10Icon />, initialProps: { iconUrl: createIcon(ContainerSVG10) } },
-        { type: 'container-30', name: 'Container 30m³', icon: <Container30Icon />, initialProps: { iconUrl: createIcon(ContainerSVG30) } },
-        { type: 'tippcontainer', name: 'Tippcontainer (Öppen)', icon: <TippContainerIcon />, initialProps: { iconUrl: createIcon(TippContainerSVG) } },
-        { type: 'tippcontainer-stangd', name: 'Tippcontainer (Stängd)', icon: <TippContainerStangdIcon />, initialProps: { iconUrl: createIcon(TippContainerStangdSVG) } },
-        { type: 'upplag', name: 'Materialupplag', icon: <UpplagIcon />, initialProps: { iconUrl: createIcon(UpplagSVG) } },
-        { type: 'lossning', name: 'Lossningszon', icon: <LossningIcon />, initialProps: { iconUrl: createIcon(LossningSVG) } },
-        { type: 'vandplan', name: 'Vändplan', icon: <VandplanIcon />, initialProps: { iconUrl: createIcon(VandplanSVG) } },
-        { type: 'infart', name: 'Infart', icon: <InfartIcon />, initialProps: { iconUrl: createIcon(InfartSVG) } },
-        { type: 'parkering', name: 'Parkering', icon: <ParkeringIcon />, initialProps: { iconUrl: createIcon(ParkeringSVG) } },
+        { type: 'container-10', name: 'Container 10m³', icon: <Container10Icon />, iconUrl: createIcon(ContainerSVG10) },
+        { type: 'container-30', name: 'Container 30m³', icon: <Container30Icon />, iconUrl: createIcon(ContainerSVG30) },
+        { type: 'tippcontainer', name: 'Tippcontainer (Öppen)', icon: <TippContainerIcon />, iconUrl: createIcon(TippContainerSVG) },
+        { type: 'tippcontainer-stangd', name: 'Tippcontainer (Stängd)', icon: <TippContainerStangdIcon />, iconUrl: createIcon(TippContainerStangdSVG) },
+        { type: 'upplag', name: 'Materialupplag', icon: <UpplagIcon />, iconUrl: createIcon(UpplagSVG) },
+        { type: 'lossning', name: 'Lossningszon', icon: <LossningIcon />, iconUrl: createIcon(LossningSVG) },
+        { type: 'vandplan', name: 'Vändplan', icon: <VandplanIcon />, iconUrl: createIcon(VandplanSVG) },
+        { type: 'infart', name: 'Infart', icon: <InfartIcon />, iconUrl: createIcon(InfartSVG) },
+        { type: 'parkering', name: 'Parkering', icon: <ParkeringIcon />, iconUrl: createIcon(ParkeringSVG) },
     ]
 };

@@ -22,10 +22,10 @@ const IntagsbryggaIcon = () => <SvgIcon svg={IntagsbryggaSVG} />;
 export const anlaggningCategory: { name: string; items: LibraryItem[] } = {
     name: "Anläggning",
     items: [
-        { type: 'id06-reader', name: 'ID06-Läsare', icon: <ID06Icon />, initialProps: { iconUrl: ID06Image } },
-        { type: 'elevator-stairs', name: 'Hiss/Trapptorn', icon: <HissTrapptornIcon />, initialProps: { iconUrl: createIcon(HissTrapptornSVG) } },
-        { type: 'rebar-station', name: 'Armeringsstation', icon: <ArmeringIcon />, initialProps: { iconUrl: createIcon(ArmeringSVG) } },
-        { type: 'saw-shed', name: 'Sågbod', icon: <SagbodIcon />, initialProps: { iconUrl: createIcon(SagbodSVG) } },
-        { type: 'loading-dock', name: 'Intagsbrygga', icon: <IntagsbryggaIcon />, initialProps: { iconUrl: createIcon(IntagsbryggaSVG) } },
+        { type: 'id06-reader', name: 'ID06-Läsare', icon: <ID06Icon />, iconUrl: ID06Image },
+        { type: 'elevator-stairs', name: 'Hiss/Trapptorn', icon: <HissTrapptornIcon />, iconUrl: createIcon(HissTrapptornSVG) },
+        { type: 'rebar-station', name: 'Armeringsstation', icon: <ArmeringIcon />, iconUrl: createIcon(ArmeringSVG) },
+        { type: 'saw-shed', name: 'Sågbod', icon: <SagbodIcon />, iconUrl: createIcon(SagbodSVG) },
+        { type: 'loading-dock', name: 'Intagsbrygga', icon: <IntagsbryggaIcon />, iconUrl: createIcon(IntagsbryggaSVG) },
     ]
 };

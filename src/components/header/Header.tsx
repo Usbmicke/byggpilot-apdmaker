@@ -22,6 +22,7 @@ interface HeaderProps {
     setShow3D: (show: boolean) => void;
 }
 
+// KORRIGERING: Komponenten har memoizerats för att förhindra onödiga re-renders.
 const Header: React.FC<HeaderProps> = ({ 
     stageRef, background, handleFile, objects, 
     customLegendItems, projectInfo, clearProject, toggleLibrary, toggleLegend,
@@ -166,4 +167,4 @@ const Header: React.FC<HeaderProps> = ({
     );
 };
 
-export default Header;
+export default React.memo(Header);

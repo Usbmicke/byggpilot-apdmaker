@@ -6,7 +6,7 @@ export type DrawingTool = 'walkway' | 'fence' | 'construction-traffic' | 'pen' |
 export const isLineTool = (tool: string): tool is 'walkway' | 'fence' | 'construction-traffic' | 'pen' => 
     ['walkway', 'fence', 'construction-traffic', 'pen'].includes(tool);
 
-export const isTextTool = (tool: string): tool is 'text' => tool === 'text';
+export const isRectTool = (tool: string): tool is 'text' | 'schakt' => ['text', 'schakt'].includes(tool);
 
 // KORRIGERING: isSymbol tar nu en sträng (type) som argument för att fungera med LibraryItem.
 export const isSymbol = (type: string): boolean => {
@@ -57,10 +57,13 @@ export interface APDObject {
     points?: number[];
     text?: string;
     fontSize?: number;
+    fontFamily?: string;
     fill?: string;
     stroke?: string;
     strokeWidth?: number;
     dash?: number[];
+    padding?: number;
+    align?: string;
     radius?: number;
     visible?: boolean; 
 }

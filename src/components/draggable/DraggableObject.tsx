@@ -1,8 +1,8 @@
 
 import React, { useRef, useEffect } from 'react';
-import { Image as KonvaImage, Transformer, Text, Line } from 'react-konva';
+import { Image as KonvaImage, Transformer, Text, Line, Rect } from 'react-konva';
 import useImage from 'use-image';
-import { APDObject, isSymbol, isTextTool, isLineTool } from '../../types/index';
+import { APDObject, isSymbol, isRectTool, isLineTool } from '../../types/index';
 
 interface DraggableObjectProps {
     obj: APDObject;
@@ -61,23 +61,37 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSe
             return <KonvaImage {...commonProps} ref={shapeRef} image={image} width={obj.width} height={obj.height} onDblClick={onTextDblClick} />;
         }
         
-        if (isTextTool(obj.type)) {
-            return (
-                <Text 
-                    {...commonProps}
-                    ref={shapeRef}
-                    text={obj.text}
-                    fontSize={obj.fontSize}
-                    fontFamily={obj.fontFamily}
-                    fill={obj.fill}
-                    width={obj.width}
-                    height={obj.height}
-                    padding={obj.padding}
-                    align={obj.align}
-                    onDblClick={onTextDblClick}
-                    onDblTap={onTextDblClick}
-                />
-            );
+        if (isRectTool(obj.type)) {
+            if (obj.type === 'text') {
+                return (
+                    <Text 
+                        {...commonProps}
+                        ref={shapeRef}
+                        text={obj.text}
+                        fontSize={obj.fontSize}
+                        fontFamily={obj.fontFamily}
+                        fill={obj.fill}
+                        width={obj.width}
+                        height={obj.height}
+                        padding={obj.padding}
+                        align={obj.align}
+                        onDblClick={onTextDblClick}
+                        onDblTap={onTextDblClick}
+                    />
+                );
+            } else if (obj.type === 'schakt') {
+                return (
+                    <Rect
+                        {...commonProps}
+                        ref={shapeRef}
+                        width={obj.width}
+                        height={obj.height}
+                        fill={obj.fill}
+                        stroke={obj.stroke}
+                        strokeWidth={obj.strokeWidth}
+                    />
+                );
+            }
         }
 
         if (isLineTool(obj.type)) {
@@ -86,9 +100,9 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSe
                     {...commonProps}
                     ref={shapeRef}
                     points={obj.points}
-                    stroke={obj.stroke || '#000000'} // KORRIGERING: Läser från obj.stroke
-                    strokeWidth={obj.strokeWidth || 2} // KORRIGERING: Läser från obj.strokeWidth
-                    dash={obj.dash} // KORRIGERING: Läser från obj.dash
+                    stroke={obj.stroke || '#000000'} 
+                    strokeWidth={obj.strokeWidth || 2}
+                    dash={obj.dash}
                     tension={obj.type === 'pen' ? 0.5 : 0}
                     lineCap="round"
                     lineJoin="round"

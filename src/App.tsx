@@ -6,7 +6,7 @@ import toast, { Toaster } from 'react-hot-toast';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 
-import { APDObject, LibraryItem, ProjectInfo, DrawingTool, CustomLegendItem, isTextTool } from './types';
+import { APDObject, LibraryItem, ProjectInfo, DrawingTool, CustomLegendItem, isRectTool } from './types';
 import { defaultProjectInfo, defaultCustomLegend } from './utils/defaults';
 import { useHistory } from './hooks/useHistory';
 
@@ -79,7 +79,7 @@ const App: React.FC = () => {
     const addObject = useCallback((item: LibraryItem, position: {x: number, y: number}, extraProps: Partial<APDObject> = {}) => {
         const baseProps = { ...item.initialProps, width: item.width || item.initialProps?.width || 50, height: item.height || item.initialProps?.height || 50 };
         
-        const newObject: APDObject = {
+        let newObject: APDObject = {
             id: uuidv4(), rotation: 0, scaleX: 1, scaleY: 1,
             ...baseProps,
             type: item.type, item: item, quantity: 1, 
@@ -87,13 +87,16 @@ const App: React.FC = () => {
             ...extraProps,
         };
 
-        // KORRIGERING: Sätter en synlig standardfärg för textobjekt
-        if (isTextTool(newObject.type)) {
-            newObject.fill = newObject.fill || '#000000';
-            newObject.text = newObject.text || 'Text';
-            newObject.fontSize = newObject.fontSize || 24;
-            newObject.padding = newObject.padding || 10;
-            newObject.width = newObject.width || 150;
+        if (isRectTool(newObject.type) && newObject.type === 'text') {
+            newObject = {
+                ...newObject,
+                text: newObject.text || 'Text',
+                fill: newObject.fill || '#000000',
+                fontSize: newObject.fontSize || 24,
+                padding: newObject.padding || 10, 
+                width: newObject.width || 100,
+                height: newObject.height || 30,
+            };
         }
 
         setObjects([...objects, newObject], true);

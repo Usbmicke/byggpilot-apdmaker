@@ -5,7 +5,7 @@ import useImage from 'use-image';
 import { useDrop } from 'react-dnd';
 import { NativeTypes } from 'react-dnd-html5-backend';
 
-import { APDObject, LibraryItem, DrawingTool, isTextTool, isLineTool, isSymbol } from '../../types/index';
+import { APDObject, LibraryItem, DrawingTool, isRectTool, isLineTool, isSymbol } from '../../types/index';
 import DraggableObject from '../draggable/DraggableObject';
 import { ItemTypes } from '../library/LibraryPanel';
 
@@ -100,7 +100,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                     y: (offset.y - stageRect.top - stage.y()) / stage.scaleY(),
                 };
 
-                // KORRIGERING: Använder den nya, korrekta isSymbol-funktionen.
                 if (isSymbol(item.type)) {
                     addObject(item, relativePos);
                 } else {
@@ -187,7 +186,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         if (pendingItem) {
              if (isLineTool(pendingItem.type)) {
                 setDrawingState({ type: pendingItem.type, points: [pos.x, pos.y], item: pendingItem });
-            } else if (isTextTool(pendingItem.type)) {
+            } else if (isRectTool(pendingItem.type)) {
                 addObject(pendingItem, pos);
             }
             setPendingItem(null);
@@ -312,7 +311,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                                     isSelected={selectedIds.includes(obj.id)}
                                     onSelect={(e) => handleObjectClick(e)}
                                     onChange={(attrs, immediate) => updateObject(obj.id, attrs, immediate)}
-                                    onTextDblClick={() => isTextTool(obj.type) && handleTextDblClick(obj)}
+                                    onTextDblClick={() => isRectTool(obj.type) && obj.type === 'text' && handleTextDblClick(obj)}
                                 />
                             ))}
                             <Transformer

@@ -97,29 +97,35 @@ interface LibraryPanelProps {
 }
 
 const LibraryPanel: React.FC<LibraryPanelProps> = ({ isOpen, selectedTool, onSelectTool }) => {
-    
+
     const handleSelectTool = (item: LibraryItem) => {
         if (selectedTool?.type === item.type) {
             onSelectTool(null); // Deselect if clicking the same tool
-            toast.dismiss(); // Dismiss any active tool toast
         } else {
             onSelectTool(item);
-            toast.loading(`Ritverktyg '${item.name}' är aktivt.`, { id: 'tool-toast', duration: Infinity });
         }
     };
 
+    useEffect(() => {
+        if (selectedTool) {
+            toast.loading(`Ritverktyg '${selectedTool.name}' är aktivt.`, { id: 'tool-toast', duration: Infinity });
+        } else {
+            toast.dismiss('tool-toast');
+        }
+    }, [selectedTool]);
+
     return (
-        <aside 
-             className={`w-80 max-w-full bg-slate-900 text-slate-300 p-4 overflow-y-auto flex-shrink-0 transition-transform duration-300 ease-in-out border-r border-slate-700
+        <aside
+            className={`w-80 max-w-full bg-slate-900 text-slate-300 p-4 overflow-y-auto flex-shrink-0 transition-transform duration-300 ease-in-out border-r border-slate-700
                         md:static md:h-auto md:w-64 md:translate-x-0 md:shadow-none
                         ${isOpen ? 'translate-x-0' : '-translate-x-full md:w-0 md:p-0 md:border-r-0'}`}
         >
-             <h2 className="text-xl font-bold text-slate-100 mb-4 whitespace-nowrap">Symbolbibliotek</h2>
+            <h2 className="text-xl font-bold text-slate-100 mb-4 whitespace-nowrap">Symbolbibliotek</h2>
             {LIBRARY_CATEGORIES.map(category => (
-                <Category 
-                    key={category.name} 
-                    name={category.name} 
-                    items={category.items} 
+                <Category
+                    key={category.name}
+                    name={category.name}
+                    items={category.items}
                     onSelectTool={handleSelectTool}
                     selectedTool={selectedTool}
                 />

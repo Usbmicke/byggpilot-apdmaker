@@ -99,7 +99,7 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>(({
         handleDoubleClick: handleDrawingDoubleClick,
         finishDrawing,
         cancelDrawing
-    } = useCanvasDrawing({ stageRef, selectedTool, addObject, setSelectedTool });
+    } = useCanvasDrawing({ stageRef, selectedTool, addObject, setSelectedTool, onTextCreate });
 
     const isInteractionBlocked = !!editingText || isDrawing || (!!selectedTool && (isLineTool(selectedTool.type) || isRectTool(selectedTool.type)));
 
@@ -261,6 +261,7 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>(({
                                     onSelect={handleObjectClick}
                                     onChange={(attrs, imm) => updateObject(obj.id, attrs, imm)}
                                     onTextDblClick={() => isText(obj) && handleTextDblClick(obj)}
+                                    isDrawing={isDrawing || !!selectedTool} // Pass isDrawing OR if a tool is selected (to be safe)
                                 />
                             ))}
                             <Transformer

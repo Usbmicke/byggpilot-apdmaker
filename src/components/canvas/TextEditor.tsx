@@ -28,10 +28,15 @@ export const TextEditor: React.FC<{
 
     useEffect(() => {
         if (textareaRef.current) {
-            textareaRef.current.focus();
-            if (editingState.text === 'Text') {
-                textareaRef.current.select();
-            }
+            // Force focus
+            setTimeout(() => {
+                if (textareaRef.current) {
+                    textareaRef.current.focus();
+                    if (editingState.text === 'Text') {
+                        textareaRef.current.select();
+                    }
+                }
+            }, 50);
         }
 
         const handleClickOutside = (event: MouseEvent) => {
@@ -39,8 +44,14 @@ export const TextEditor: React.FC<{
                 handleDone();
             }
         };
-        document.addEventListener('mousedown', handleClickOutside);
+
+        // Delay attaching the listener to avoid capturing the initial creation click
+        const timer = setTimeout(() => {
+            document.addEventListener('mousedown', handleClickOutside);
+        }, 100);
+
         return () => {
+            clearTimeout(timer);
             document.removeEventListener('mousedown', handleClickOutside);
         };
 
@@ -68,6 +79,8 @@ export const TextEditor: React.FC<{
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        e.stopPropagation(); // Stop event from bubbling to Canvas/Window
+
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             handleDone();

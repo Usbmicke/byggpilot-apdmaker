@@ -10,9 +10,10 @@ interface DraggableObjectProps {
     onSelect: (e: any) => void;
     onChange: (attrs: Partial<APDObject>, immediate: boolean) => void;
     onTextDblClick: () => void;
+    isDrawing: boolean;
 }
 
-const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSelect, onChange, onTextDblClick }) => {
+const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSelect, onChange, onTextDblClick, isDrawing }) => {
     const shapeRef = useRef<any>();
     const trRef = useRef<any>();
 
@@ -66,7 +67,8 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSe
             x: obj.x,
             y: obj.y,
             rotation: obj.rotation,
-            draggable: true,
+            draggable: !isDrawing, // Disable dragging when drawing
+            listening: !isDrawing, // Disable events when drawing so clicks pass through to stage
             onClick: onSelect,
             onTap: onSelect,
             onDragEnd: handleDragEnd,

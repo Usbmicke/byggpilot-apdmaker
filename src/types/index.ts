@@ -63,6 +63,7 @@ export interface APDObject {
     stroke?: string;
     strokeWidth?: number;
     dash?: number[];
+    tension?: number;
     padding?: number;
     align?: string;
     radius?: number;

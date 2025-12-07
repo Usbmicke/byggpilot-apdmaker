@@ -93,28 +93,22 @@ export const useCanvasDrawing = ({
                 addObject(selectedTool, { x: finalX, y: finalY }, {
                     width: finalWidth,
                     height: finalHeight,
-                    // Apply tool specific styles if any
-                    fill: selectedTool.fill || 'rgba(200, 200, 200, 0.5)',
-                    stroke: selectedTool.stroke || '#000000',
-                    strokeWidth: selectedTool.strokeWidth || 1,
+                    // Apply tool specific styles from initialProps
+                    fill: selectedTool.initialProps?.fill || 'rgba(200, 200, 200, 0.5)',
+                    stroke: selectedTool.initialProps?.stroke || '#000000',
+                    strokeWidth: selectedTool.initialProps?.strokeWidth || 1,
+                });
+            } else if (selectedTool.type === 'text') {
+                // Allow click-to-place for Text (use default dimensions)
+                addObject(selectedTool, { x: finalX, y: finalY }, {
+                    width: selectedTool.initialProps?.width || 100,
+                    height: selectedTool.initialProps?.height || 50,
+                    text: selectedTool.initialProps?.text || 'Text',
+                    fontSize: selectedTool.initialProps?.fontSize || 24,
+                    fill: selectedTool.initialProps?.fill || '#000000',
                 });
             }
         } else if (isLineTool(selectedTool.type) && currentPoints.length >= 4) {
-            // For lines, we generate the object centered roughly but keep points relative to that center
-            // OR simpler: keep points absolute and position object at 0,0 (or bounding box center)
-            // Konva Lines with relative points are tricky if we want to move the whole group later.
-            // Strategy: Calculate bounding box, set x/y to top-left, and adjust points relative to x/y.
-
-            // However, our existing data model might expect points to be relative or absolute.
-            // Looking at ThreeDView.tsx: 
-            // vectors.push(new THREE.Vector3((obj.points[i] - bgWidth / 2) * SCALE_FACTOR...
-            // It seems points are absolute coordinates on the canvas!
-            // So we can set x/y to 0 for the object container, or calculate properly.
-            // But existing lines in DraggableObject use <Line points={obj.points} x={obj.x} y={obj.y} ... />
-            // If x/y are non-zero, points are relative.
-            // Let's just store points as separate array and keep x/y at 0 for simplicity initially,
-            // OR normalize them so x/y is the top-left corner.
-
             const minX = Math.min(...currentPoints.filter((_, i) => i % 2 === 0));
             const minY = Math.min(...currentPoints.filter((_, i) => i % 2 !== 0));
 
@@ -122,9 +116,10 @@ export const useCanvasDrawing = ({
 
             addObject(selectedTool, { x: minX, y: minY }, {
                 points: relativePoints,
-                stroke: selectedTool.stroke || '#000000',
-                strokeWidth: selectedTool.strokeWidth || 2,
-                dash: selectedTool.dash,
+                stroke: selectedTool.initialProps?.stroke || '#000000',
+                strokeWidth: selectedTool.initialProps?.strokeWidth || 2,
+                dash: selectedTool.initialProps?.dash,
+                tension: selectedTool.initialProps?.tension, // Support for pen tension
             });
         }
 

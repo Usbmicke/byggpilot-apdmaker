@@ -225,11 +225,29 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>(({
     }, [selectedIds.length, removeObjects, undo, redo, setSelectedIds, selectedTool, setSelectedTool, isDrawing, cancelDrawing, finishDrawing, editingText]);
 
     useEffect(() => {
-        const checkSize = () => { if (containerRef.current) setSize({ width: containerRef.current.offsetWidth, height: containerRef.current.offsetHeight }); };
-        checkSize(); window.addEventListener('resize', checkSize);
+        const checkSize = () => {
+            if (containerRef.current) {
+                setSize({
+                    width: containerRef.current.offsetWidth,
+                    height: containerRef.current.offsetHeight
+                });
+            }
+        };
+
+        checkSize();
+
+        const observer = new ResizeObserver(() => {
+            checkSize();
+        });
+
+        if (containerRef.current) {
+            observer.observe(containerRef.current);
+        }
+
         window.addEventListener('keydown', handleKeyDown);
+
         return () => {
-            window.removeEventListener('resize', checkSize);
+            observer.disconnect();
             window.removeEventListener('keydown', handleKeyDown);
         }
     }, [handleKeyDown]);
@@ -309,6 +327,7 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>(({
                                     fill="rgba(0, 255, 0, 0.3)"
                                     stroke="green"
                                     strokeWidth={1}
+                                    listening={false} // CRITICAL: Prevent preview from blocking mouse events
                                 />
                             )}
                             {isDrawing && currentPoints.length > 0 && (
@@ -317,6 +336,7 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>(({
                                     stroke="blue"
                                     strokeWidth={2}
                                     dash={[5, 5]}
+                                    listening={false} // CRITICAL: Prevent preview from blocking mouse events
                                 />
                             )}
 

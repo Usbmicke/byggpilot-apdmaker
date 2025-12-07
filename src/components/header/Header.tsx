@@ -22,30 +22,39 @@ const renderLegendToHtml = (projectInfo: ProjectInfo, objects: APDObject[], cust
     }, {} as { [key: string]: APDObject });
 
     const symbolHtml = Object.values(aggregatedSymbols).map(obj => `
-        <div style="display: flex; align-items: center; justify-content: space-between; padding: 5px; font-size: 10px;">
-            <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">${obj.item.name}</span>
-            <span style="font-weight: bold;">${obj.quantity} st</span>
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #eee;">
+            <div style="display: flex; align-items: center;">
+                ${obj.item.iconUrl ? `<img src="${obj.item.iconUrl}" style="width: 16px; height: 16px; margin-right: 8px; vertical-align: middle;" />` : ''}
+                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; font-weight: 500;">${obj.item.name || 'Okänt objekt'}</span>
+            </div>
+            <span style="font-weight: bold; color: #444;">${obj.quantity} st</span>
         </div>
     `).join('');
 
     const customHtml = customItems.map(item => `
-        <div style="display: flex; align-items: center; padding: 5px; font-size: 10px;">
-            <div style="width: 12px; height: 12px; border-radius: 50%; background-color: ${item.color}; margin-right: 8px;"></div>
-            <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">${item.name}</span>
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #eee;">
+            <div style="display: flex; align-items: center;">
+                <div style="width: 14px; height: 14px; border-radius: 4px; background-color: ${item.color}; margin-right: 8px;"></div>
+                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; font-weight: 500;">${item.name || 'Anpassad'}</span>
+            </div>
+            <span style="font-weight: bold; color: #444;">-</span>
         </div>
     `).join('');
 
     return `
-      <div style="font-family: Helvetica, Arial, sans-serif; color: #333; background-color: #fff; padding: 15px; border: 1px solid #ddd; border-radius: 5px;">
-          <h2 style="font-size: 16px; font-weight: bold; margin: 0 0 10px; padding-bottom: 5px; border-bottom: 1px solid #ccc;">Projektinformation</h2>
-          <div style="font-size: 11px; margin-bottom: 15px;">
-              <p style="margin: 2px 0;"><strong>Företag:</strong> ${projectInfo.company || '-'}</p>
-              <p style="margin: 2px 0;"><strong>Projektnamn:</strong> ${projectInfo.projectName || '-'}</p>
-              <p style="margin: 2px 0;"><strong>Projekt-ID:</strong> ${projectInfo.projectId || '-'}</p>
+      <div style="font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b; background-color: #fff; padding: 20px; box-sizing: border-box;">
+          <h2 style="font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin: 0 0 10px; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px;">Projektinformation</h2>
+          <div style="font-size: 12px; margin-bottom: 20px; line-height: 1.6;">
+              <div style="display: flex; justify-content: space-between;"><strong style="color: #475569;">Företag:</strong> <span>${projectInfo.company || '-'}</span></div>
+              <div style="display: flex; justify-content: space-between;"><strong style="color: #475569;">Projekt:</strong> <span>${projectInfo.projectName || '-'}</span></div>
+              <div style="display: flex; justify-content: space-between;"><strong style="color: #475569;">ID:</strong> <span>${projectInfo.projectId || '-'}</span></div>
+              <div style="display: flex; justify-content: space-between;"><strong style="color: #475569;">Datum:</strong> <span>${new Date().toLocaleDateString('sv-SE')}</span></div>
           </div>
-          <h2 style="font-size: 16px; font-weight: bold; margin: 15px 0 10px; padding-bottom: 5px; border-bottom: 1px solid #ccc;">Objektförteckning</h2>
-          ${symbolHtml}
-          ${customHtml}
+          <h2 style="font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin: 0 0 10px; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px;">Teckenförklaring</h2>
+          <div style="font-size: 11px;">
+            ${symbolHtml}
+            ${customHtml}
+          </div>
       </div>
     `;
 };
@@ -135,7 +144,7 @@ const Header: React.FC<HeaderProps> = ({
             const container = document.createElement('div');
             container.style.position = 'absolute';
             container.style.left = '-9999px';
-            container.style.width = '250px';
+            container.style.width = '300px'; // Increased width for better legibility
             document.body.appendChild(container);
 
             container.innerHTML = renderLegendToHtml(projectInfo, objects, customLegendItems);
@@ -160,27 +169,35 @@ const Header: React.FC<HeaderProps> = ({
             const margin = 10;
 
             const legendCanvas = legendImage;
-            const legendWidth = 60;
+            const legendWidth = 70; // Slightly wider legend on PDF
             const legendHeight = (legendCanvas.height * legendWidth) / legendCanvas.width;
 
-            const drawingAreaWidth = pdfWidth - legendWidth - margin * 2;
+            const drawingAreaWidth = pdfWidth - legendWidth - margin * 2.5; // More space between canvas and legend
             const canvasAspectRatio = background.width / background.height;
             let canvasWidth = drawingAreaWidth;
             let canvasHeight = canvasWidth / canvasAspectRatio;
 
-            if (canvasHeight > pdfHeight - margin * 2) {
-                canvasHeight = pdfHeight - margin * 2;
+            if (canvasHeight > pdfHeight - margin * 2.5) { // Account for top margin (title)
+                canvasHeight = pdfHeight - margin * 2.5;
                 canvasWidth = canvasHeight * canvasAspectRatio;
             }
 
-            pdf.setFontSize(24);
+            // --- Modern Title ---
+            pdf.setFontSize(28);
+            pdf.setTextColor(30, 41, 59); // Slate-800
             pdf.setFont('Helvetica', 'bold');
-            pdf.text('APD-PLAN', margin, margin + 5);
+            pdf.text('APD-PLAN', margin, margin + 8);
 
-            pdf.addImage(canvasImage, 'PNG', margin, margin + 15, canvasWidth, canvasHeight);
+            // Subtitle / Project Name next to title? Or just cleaner look.
+            // Let's add a colored line under the title
+            pdf.setDrawColor(59, 130, 246); // Blue-500
+            pdf.setLineWidth(1);
+            pdf.line(margin, margin + 12, margin + 100, margin + 12);
+
+            pdf.addImage(canvasImage, 'PNG', margin, margin + 20, canvasWidth, canvasHeight);
 
             const legendX = pdfWidth - legendWidth - margin;
-            pdf.addImage(legendImage, 'PNG', legendX, margin + 15, legendWidth, legendHeight);
+            pdf.addImage(legendImage, 'PNG', legendX, margin + 20, legendWidth, legendHeight);
 
             const fileName = projectInfo.projectName ? `${projectInfo.projectName.replace(/ /g, '_')}_APD.pdf` : 'apd-plan.pdf';
             pdf.save(fileName);

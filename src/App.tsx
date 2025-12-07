@@ -51,7 +51,7 @@ const App: React.FC = () => {
     };
 
     const addObject = useCallback((item: LibraryItem, position: { x: number, y: number }, extraProps: Partial<APDObject> = {}): APDObject => {
-        const baseProps = { ...item.initialProps, width: item.width || item.initialProps?.width || 50, height: item.height || item.initialProps?.height || 50 };
+        const baseProps = { ...item.initialProps, width: item.width || item.initialProps?.width || 25, height: item.height || item.initialProps?.height || 25 };
 
         let newObject: APDObject = {
             id: uuidv4(), rotation: 0, scaleX: 1, scaleY: 1,

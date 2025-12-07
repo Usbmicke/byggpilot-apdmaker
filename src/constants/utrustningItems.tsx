@@ -37,9 +37,9 @@ export const utrustningCategory: { name: string; items: LibraryItem[] } = {
             icon: <CraneIcon />,
             iconUrl: createIcon(KranSVG),
             initialProps: {
-                radius: 30, // Reduced from 75 to be less giant
-                width: 60, // Sane default width
-                height: 60, // Sane default height
+                radius: 20, // Reduced from 30
+                width: 40, // Reduced from 60
+                height: 40, // Reduced from 60
             }
         },
         { id: 'el-std', type: 'elcentral', name: 'Elcentral', icon: <ElcentralIcon />, iconUrl: createIcon(ElcentralSVG) },

@@ -101,21 +101,22 @@ export const TextEditor: React.FC<{
         left: `${editingState.x}px`,
         transform: `rotate(${editingState.rotation}deg)`,
         transformOrigin: 'top left',
-        zIndex: 100,
+        zIndex: 1000, // Force high z-index
+        pointerEvents: 'auto', // Ensure clicks are captured here
     };
 
     const textareaStyle: React.CSSProperties = {
         width: `${editingState.width}px`,
         height: 'auto',
-        background: 'rgba(255, 255, 255, 0.95)',
-        border: '1px solid #66afe9',
-        boxShadow: '0 0 8px rgba(102, 175, 233, 0.6)',
-        borderRadius: '3px',
+        background: 'transparent', // Transparent background as requested
+        border: '1px solid #60a5fa', // Light blue border (blue-400)
+        boxShadow: 'none',
+        borderRadius: '4px',
         color: editingState.fill,
         fontFamily: editingState.fontFamily,
         fontSize: `${editingState.fontSize}px`,
         lineHeight: 1.2,
-        padding: '5px',
+        padding: '5px', // Match padding in DraggableObject
         margin: 0,
         outline: 'none',
         overflow: 'hidden',

@@ -82,6 +82,7 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>(({
     const containerRef = useRef<HTMLDivElement>(null);
     const [size, setSize] = useState({ width: 0, height: 0 });
     const [editingText, setEditingText] = useState<EditingTextState | null>(null);
+    const [pendingEditId, setPendingEditId] = useState<string | null>(null);
     const [bgImage] = useImage(background?.url || '', 'anonymous');
 
     const {
@@ -113,10 +114,19 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>(({
 
     useEffect(() => { if (containerRef.current) drop(containerRef.current); }, [drop]);
 
-    const handleTextDblClick = useCallback((obj: APDObject) => {
-        const stage = stageRef.current; if (!stage) return;
+    const handleStartTextEdit = useCallback((obj: APDObject) => {
+        const stage = stageRef.current;
+        if (!stage) return;
+
         const textNode = stage.findOne('.' + obj.id);
-        if (!textNode) return;
+        if (!textNode) {
+            // Node not found yet (race condition), queue it
+            setPendingEditId(obj.id);
+            return;
+        }
+
+        // Node found, clear pending if it matches
+        if (pendingEditId === obj.id) setPendingEditId(null);
 
         setSelectedIds([]);
         updateObject(obj.id, { visible: false }, false);
@@ -139,10 +149,24 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>(({
             fill: obj.fill || '#000',
             rotation: textNode.rotation(),
         });
-    }, [stageRef, updateObject, setSelectedIds]);
+    }, [stageRef, updateObject, setSelectedIds, pendingEditId]);
+
+    // Effect to process pending edit when objects update
+    useEffect(() => {
+        if (pendingEditId) {
+            const obj = objects.find(o => o.id === pendingEditId);
+            if (obj) {
+                // Try to start edit again. 
+                // We need a slight delay or check to ensure Konva has drawn? 
+                // Usually React update -> Effect -> Konva update (via props) -> Ref update.
+                // Let's try calling it. logic inside handles check.
+                handleStartTextEdit(obj);
+            }
+        }
+    }, [objects, pendingEditId, handleStartTextEdit]);
 
     useImperativeHandle(ref, () => ({
-        startTextEdit: handleTextDblClick
+        startTextEdit: handleStartTextEdit
     }));
 
     const handleObjectClick = (e: any) => {
@@ -222,6 +246,7 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>(({
     const handleTextUpdate = (newText: string, newWidth: number, newHeight: number) => {
         if (editingText) {
             updateObject(editingText.id, { text: newText, width: newWidth, height: newHeight, visible: true }, true);
+            setSelectedIds([editingText.id]); // Re-select the object so it can be moved/resized immediately
             setEditingText(null);
         }
     };
@@ -260,7 +285,7 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>(({
                                     isSelected={selectedIds.includes(obj.id)}
                                     onSelect={handleObjectClick}
                                     onChange={(attrs, imm) => updateObject(obj.id, attrs, imm)}
-                                    onTextDblClick={() => isText(obj) && handleTextDblClick(obj)}
+                                    onTextDblClick={() => isText(obj) && handleStartTextEdit(obj)}
                                     isDrawing={isDrawing || !!selectedTool} // Pass isDrawing OR if a tool is selected (to be safe)
                                 />
                             ))}

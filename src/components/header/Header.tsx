@@ -73,12 +73,14 @@ interface HeaderProps {
     toggleLegend: () => void;
     show3D: boolean;
     setShow3D: (show: boolean) => void;
+    isLocked: boolean;
+    setIsLocked: (locked: boolean) => void;
 }
 
 const Header: React.FC<HeaderProps> = ({
     stageRef, background, handleFile, objects,
     customLegendItems, projectInfo, clearProject, toggleLibrary, toggleLegend,
-    show3D, setShow3D
+    show3D, setShow3D, isLocked, setIsLocked
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);

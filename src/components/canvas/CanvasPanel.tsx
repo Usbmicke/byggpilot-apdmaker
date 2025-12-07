@@ -75,278 +75,298 @@ export interface CanvasPanelRef {
     startTextEdit: (obj: APDObject) => void;
 }
 
-const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>(({
-    stageRef, objects, background, selectedIds, setSelectedIds, checkDeselect, addObject, updateObject,
-    removeObjects, handleFile, canUndo, canRedo, undo, redo, selectedTool, setSelectedTool, onTextCreate
-}, ref) => {
-    const containerRef = useRef<HTMLDivElement>(null);
-    const [size, setSize] = useState({ width: 0, height: 0 });
-    const [editingText, setEditingText] = useState<EditingTextState | null>(null);
-    const [pendingEditId, setPendingEditId] = useState<string | null>(null);
-    const [bgImage] = useImage(background?.url || '', 'anonymous');
+const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>(
+    ({
+        stageRef, objects, background, selectedIds, setSelectedIds, checkDeselect, addObject, updateObject,
+        removeObjects, handleFile, canUndo, canRedo, undo, redo, selectedTool, setSelectedTool, onTextCreate
+    }, ref) => {
+        const containerRef = useRef<HTMLDivElement>(null);
+        const [size, setSize] = useState({ width: 0, height: 0 });
+        const [editingText, setEditingText] = useState<EditingTextState | null>(null);
+        const [pendingEditId, setPendingEditId] = useState<string | null>(null);
+        const [bgImage] = useImage(background?.url || '', 'anonymous');
 
-    const {
-        drop, isOver, canDrop, draggedItemType
-    } = useDrawing({ stageRef, selectedTool, addObject, setSelectedTool, onTextCreate });
+        const {
+            drop, isOver, canDrop, draggedItemType
+        } = useDrawing({ stageRef, selectedTool, addObject, setSelectedTool, onTextCreate });
 
-    // --- Drawing Hook Integration ---
-    const {
-        isDrawing,
-        currentPoints,
-        currentRect,
-        handleMouseDown: handleDrawingMouseDown,
-        handleMouseMove: handleDrawingMouseMove,
-        handleMouseUp: handleDrawingMouseUp,
-        handleDoubleClick: handleDrawingDoubleClick,
-        finishDrawing,
-        cancelDrawing
-    } = useCanvasDrawing({ stageRef, selectedTool, addObject, setSelectedTool, onTextCreate });
+        // --- Drawing Hook Integration ---
+        const {
+            isDrawing,
+            currentPoints,
+            currentRect,
+            handleMouseDown: handleDrawingMouseDown,
+            handleMouseMove: handleDrawingMouseMove,
+            handleMouseUp: handleDrawingMouseUp,
+            handleDoubleClick: handleDrawingDoubleClick,
+            finishDrawing,
+            cancelDrawing
+        } = useCanvasDrawing({ stageRef, selectedTool, addObject, setSelectedTool, onTextCreate });
 
-    const isInteractionBlocked = !!editingText || isDrawing || (!!selectedTool && (isLineTool(selectedTool.type) || isRectTool(selectedTool.type)));
+        const isInteractionBlocked = !!editingText || isDrawing || (!!selectedTool && (isLineTool(selectedTool.type) || isRectTool(selectedTool.type)));
 
-    const {
-        selectionBox, selectionRectRef,
-        handleMouseDown: handleSelectionMouseDown,
-        handleMouseMove: handleSelectionMouseMove,
-        handleMouseUp: handleSelectionMouseUp,
-        handleWheel
-    } = useStageInteraction({ stageRef, objects, selectedIds, setSelectedIds, checkDeselect, isInteractionBlocked });
+        const {
+            selectionBox, selectionRectRef,
+            handleMouseDown: handleSelectionMouseDown,
+            handleMouseMove: handleSelectionMouseMove,
+            handleMouseUp: handleSelectionMouseUp,
+            handleWheel
+        } = useStageInteraction({ stageRef, objects, selectedIds, setSelectedIds, checkDeselect, isInteractionBlocked });
 
-    useEffect(() => { if (containerRef.current) drop(containerRef.current); }, [drop]);
+        useEffect(() => { if (containerRef.current) drop(containerRef.current); }, [drop]);
 
-    const handleStartTextEdit = useCallback((obj: APDObject) => {
-        const stage = stageRef.current;
-        if (!stage) return;
+        const handleStartTextEdit = useCallback((obj: APDObject) => {
+            const stage = stageRef.current;
+            if (!stage) return;
 
-        const textNode = stage.findOne('.' + obj.id);
-        if (!textNode) {
-            // Node not found yet (race condition), queue it
-            setPendingEditId(obj.id);
-            return;
-        }
-
-        // Node found, clear pending if it matches
-        if (pendingEditId === obj.id) setPendingEditId(null);
-
-        setSelectedIds([]);
-        updateObject(obj.id, { visible: false }, false);
-
-        // Get scaled and rotated position
-        const transform = textNode.getAbsoluteTransform();
-        const pos = { x: transform.getMatrix()[4], y: transform.getMatrix()[5] };
-
-        const stageBox = stage.container().getBoundingClientRect();
-
-        setEditingText({
-            id: obj.id,
-            text: obj.text || '',
-            x: stageBox.left + pos.x,
-            y: stageBox.top + pos.y,
-            width: textNode.width() * textNode.scaleX(),
-            height: textNode.height() * textNode.scaleY(),
-            fontSize: obj.fontSize || 16,
-            fontFamily: obj.fontFamily || 'sans-serif',
-            fill: obj.fill || '#000',
-            rotation: textNode.rotation(),
-        });
-    }, [stageRef, updateObject, setSelectedIds, pendingEditId]);
-
-    // Effect to process pending edit when objects update
-    useEffect(() => {
-        if (pendingEditId) {
-            const obj = objects.find(o => o.id === pendingEditId);
-            if (obj) {
-                // Try to start edit again. 
-                // We need a slight delay or check to ensure Konva has drawn? 
-                // Usually React update -> Effect -> Konva update (via props) -> Ref update.
-                // Let's try calling it. logic inside handles check.
-                handleStartTextEdit(obj);
+            const textNode = stage.findOne('.' + obj.id);
+            if (!textNode) {
+                // Node not found yet (race condition), queue it
+                setPendingEditId(obj.id);
+                return;
             }
-        }
-    }, [objects, pendingEditId, handleStartTextEdit]);
 
-    useImperativeHandle(ref, () => ({
-        startTextEdit: handleStartTextEdit
-    }));
+            // Node found, clear pending if it matches
+            if (pendingEditId === obj.id) setPendingEditId(null);
 
-    const handleObjectClick = (e: any) => {
-        if (editingText || isDrawing) return;
-        const id = e.target.id();
-        const isShift = e.evt.shiftKey;
-        const newSelectedIds = isShift ? (selectedIds.includes(id) ? selectedIds.filter(sid => sid !== id) : [...selectedIds, id]) : (selectedIds.length === 1 && selectedIds[0] === id ? [] : [id]);
-        setSelectedIds(newSelectedIds);
-    };
+            setSelectedIds([]);
+            updateObject(obj.id, { visible: false }, false);
 
-    const handleStageMouseDown = (e: any) => {
-        if (e.target !== e.target.getStage()) return;
+            // Get scaled and rotated position
+            const transform = textNode.getAbsoluteTransform();
+            const pos = { x: transform.getMatrix()[4], y: transform.getMatrix()[5] };
 
-        if (selectedTool && (isLineTool(selectedTool.type) || isRectTool(selectedTool.type))) {
-            handleDrawingMouseDown(e);
-        } else {
-            handleSelectionMouseDown(e);
-            checkDeselect(e);
-        }
-    };
+            const stageBox = stage.container().getBoundingClientRect();
 
-    const handleStageMouseMove = (e: any) => {
-        if (isDrawing) {
-            handleDrawingMouseMove();
-        } else {
-            handleSelectionMouseMove(e);
-        }
-    }
+            setEditingText({
+                id: obj.id,
+                text: obj.text || '',
+                x: stageBox.left + pos.x,
+                y: stageBox.top + pos.y,
+                width: textNode.width() * textNode.scaleX(),
+                height: textNode.height() * textNode.scaleY(),
+                fontSize: obj.fontSize || 16,
+                fontFamily: obj.fontFamily || 'sans-serif',
+                fill: obj.fill || '#000',
+                rotation: textNode.rotation(),
+            });
+        }, [stageRef, updateObject, setSelectedIds, pendingEditId]);
 
-    const handleStageMouseUp = (e: any) => {
-        if (isDrawing) {
-            handleDrawingMouseUp(e);
-        } else {
-            handleSelectionMouseUp(e);
-        }
-    }
+        // Effect to process pending edit when objects update
+        useEffect(() => {
+            if (pendingEditId) {
+                const obj = objects.find(o => o.id === pendingEditId);
+                if (obj) {
+                    // Try to start edit again. 
+                    // We need a slight delay or check to ensure Konva has drawn? 
+                    // Usually React update -> Effect -> Konva update (via props) -> Ref update.
+                    // Let's try calling it. logic inside handles check.
+                    handleStartTextEdit(obj);
+                }
+            }
+        }, [objects, pendingEditId, handleStartTextEdit]);
 
-    const handleKeyDown = useCallback((e: KeyboardEvent) => {
-        if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
-        if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); redo(); }
-        if (e.key === 'Delete' || e.key === 'Backspace') { if (selectedIds.length > 0 && !editingText) removeObjects(selectedIds); }
-        if (e.key === 'Escape') {
-            if (isDrawing) {
-                cancelDrawing();
-                setSelectedTool(null);
+        useImperativeHandle(ref, () => ({
+            startTextEdit: handleStartTextEdit
+        }));
+
+        const handleObjectClick = (e: any) => {
+            if (editingText || isDrawing) return;
+            const id = e.target.id();
+            const isShift = e.evt.shiftKey;
+            const newSelectedIds = isShift ? (selectedIds.includes(id) ? selectedIds.filter(sid => sid !== id) : [...selectedIds, id]) : (selectedIds.length === 1 && selectedIds[0] === id ? [] : [id]);
+            setSelectedIds(newSelectedIds);
+        };
+
+        const handleStageMouseDown = (e: any) => {
+            if (e.target !== e.target.getStage()) return;
+
+            if (selectedTool && (isLineTool(selectedTool.type) || isRectTool(selectedTool.type))) {
+                handleDrawingMouseDown(e);
             } else {
-                setSelectedIds([]);
-                if (selectedTool) setSelectedTool(null);
-            }
-        }
-        if (e.key === 'Enter') {
-            if (isDrawing) {
-                finishDrawing();
-            }
-        }
-    }, [selectedIds.length, removeObjects, undo, redo, setSelectedIds, selectedTool, setSelectedTool, isDrawing, cancelDrawing, finishDrawing, editingText]);
-
-    useEffect(() => {
-        const checkSize = () => {
-            if (containerRef.current) {
-                setSize({
-                    width: containerRef.current.offsetWidth,
-                    height: containerRef.current.offsetHeight
-                });
+                handleSelectionMouseDown(e);
+                checkDeselect(e);
             }
         };
 
-        checkSize();
+        const handleStageMouseMove = (e: any) => {
+            if (isDrawing) {
+                handleDrawingMouseMove();
+            } else {
+                handleSelectionMouseMove(e);
+            }
+        }
 
-        const observer = new ResizeObserver(() => {
+        const handleStageMouseUp = (e: any) => {
+            if (isDrawing) {
+                handleDrawingMouseUp(e);
+            } else {
+                handleSelectionMouseUp(e);
+            }
+        }
+
+        const handleKeyDown = useCallback((e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
+            if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); redo(); }
+            if (e.key === 'Delete' || e.key === 'Backspace') { if (selectedIds.length > 0 && !editingText) removeObjects(selectedIds); }
+            if (e.key === 'Escape') {
+                if (isDrawing) {
+                    cancelDrawing();
+                    setSelectedTool(null);
+                } else {
+                    setSelectedIds([]);
+                    if (selectedTool) setSelectedTool(null);
+                }
+            }
+            if (e.key === 'Enter') {
+                if (isDrawing) {
+                    finishDrawing();
+                }
+            }
+        }, [selectedIds.length, removeObjects, undo, redo, setSelectedIds, selectedTool, setSelectedTool, isDrawing, cancelDrawing, finishDrawing, editingText]);
+
+        useEffect(() => {
+            const checkSize = () => {
+                if (containerRef.current) {
+                    setSize({
+                        width: containerRef.current.offsetWidth,
+                        height: containerRef.current.offsetHeight
+                    });
+                }
+            };
+
             checkSize();
-        });
 
-        if (containerRef.current) {
-            observer.observe(containerRef.current);
-        }
+            const observer = new ResizeObserver(() => {
+                checkSize();
+            });
 
-        window.addEventListener('keydown', handleKeyDown);
+            if (containerRef.current) {
+                observer.observe(containerRef.current);
+            }
 
-        return () => {
-            observer.disconnect();
-            window.removeEventListener('keydown', handleKeyDown);
-        }
-    }, [handleKeyDown]);
+            window.addEventListener('keydown', handleKeyDown);
 
-    useEffect(() => {
-        if (background && bgImage && stageRef.current && size.width > 0) {
-            const stage = stageRef.current;
-            const scale = Math.min(size.width / background.width, size.height / background.height) * 0.95;
-            stage.scale({ x: scale, y: scale });
-            stage.position({ x: (size.width - background.width * scale) / 2, y: (size.height - background.height * scale) / 2 });
-        }
-    }, [background, bgImage, size, stageRef]);
+            return () => {
+                observer.disconnect();
+                window.removeEventListener('keydown', handleKeyDown);
+            }
+        }, [handleKeyDown]);
 
-    const handleTextUpdate = (newText: string, newWidth: number, newHeight: number) => {
-        if (editingText) {
-            updateObject(editingText.id, { text: newText, width: newWidth, height: newHeight, visible: true }, true);
-            setSelectedIds([editingText.id]); // Re-select the object so it can be moved/resized immediately
-            setEditingText(null);
-        }
-    };
+        useEffect(() => {
+            if (background && bgImage && stageRef.current && size.width > 0) {
+                const stage = stageRef.current;
+                const scale = Math.min(size.width / background.width, size.height / background.height) * 0.95;
+                stage.scale({ x: scale, y: scale });
+                stage.position({ x: (size.width - background.width * scale) / 2, y: (size.height - background.height * scale) / 2 });
+            }
+        }, [background, bgImage, size, stageRef]);
 
-    const handleTextCancel = () => {
-        if (editingText) {
-            updateObject(editingText.id, { visible: true }, false);
-            setEditingText(null);
-        }
-    };
+        const handleTextUpdate = (newText: string, newWidth: number, newHeight: number) => {
+            if (editingText) {
+                updateObject(editingText.id, { text: newText, width: newWidth, height: newHeight, visible: true }, true);
+                setSelectedIds([editingText.id]); // Re-select the object so it can be moved/resized immediately
+                setEditingText(null);
+            }
+        };
 
-    return (
-        <div className={`flex-1 relative overflow-hidden bg-slate-900 touch-none ${selectedTool ? 'cursor-crosshair' : 'cursor-grab'}`} ref={containerRef}>
-            {!background ? <WelcomeScreen onFileSelect={handleFile} /> : (
-                <>
-                    <DropIndicator isOver={isOver && canDrop && draggedItemType === NativeTypes.FILE} />
-                    <UndoRedoControls undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo} />
-                    <Stage
-                        ref={stageRef}
-                        width={size.width} height={size.height}
-                        onMouseDown={handleStageMouseDown}
-                        onMouseMove={handleStageMouseMove}
-                        onMouseUp={handleStageMouseUp}
-                        onDblClick={handleDrawingDoubleClick}
-                        onWheel={handleWheel}
-                        draggable={!isInteractionBlocked}
-                    >
-                        <Layer>
-                            {bgImage && <KonvaImage image={bgImage} width={background.width} height={background.height} listening={false} />}
-                        </Layer>
-                        <Layer>
-                            {objects.map((obj) => (
-                                <DraggableObject
-                                    key={obj.id}
-                                    obj={obj}
-                                    isSelected={selectedIds.includes(obj.id)}
-                                    onSelect={handleObjectClick}
-                                    onChange={(attrs, imm) => updateObject(obj.id, attrs, imm)}
-                                    onTextDblClick={() => isText(obj) && handleStartTextEdit(obj)}
-                                    isDrawing={isDrawing || !!selectedTool} // Pass isDrawing OR if a tool is selected (to be safe)
+        const handleTextCancel = () => {
+            if (editingText) {
+                updateObject(editingText.id, { visible: true }, false);
+                setEditingText(null);
+            }
+        };
+
+        return (
+            <div ref={containerRef} className="absolute inset-0 z-0 bg-slate-500 overflow-hidden outline-none" tabIndex={0}>
+                {!background && <WelcomeScreen onFileSelect={handleFile} />}
+                <DropIndicator isOver={isOver && canDrop && draggedItemType === NativeTypes.FILE} />
+
+                <div className="absolute top-4 left-4 z-10 flex gap-2">
+                    <div className="bg-slate-800 text-white px-3 py-1 rounded shadow text-sm">
+                        {Math.round(size.width)} x {Math.round(size.height)} px
+                    </div>
+                </div>
+
+                <UndoRedoControls undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo} />
+
+                {background && (
+                    <>
+                        <Stage
+                            ref={stageRef}
+                            width={size.width}
+                            height={size.height}
+                            onMouseDown={handleStageMouseDown}
+                            onMouseMove={handleStageMouseMove}
+                            onMouseUp={handleStageMouseUp}
+                            onClick={checkDeselect}
+                        >
+                            <Layer>
+                                {/* Background Image */}
+                                {bgImage && (
+                                    <KonvaImage
+                                        image={bgImage}
+                                        width={background.width}
+                                        height={background.height}
+                                        listening={false}
+                                    />
+                                )}
+
+                                {/* Objects */}
+                                {objects.map((obj) => (
+                                    <DraggableObject
+                                        key={obj.id}
+                                        obj={obj}
+                                        isSelected={selectedIds.includes(obj.id)}
+                                        onSelect={handleObjectClick}
+                                        onChange={(attrs, imm) => updateObject(obj.id, attrs, imm)}
+                                        onTextDblClick={() => isText(obj) && handleStartTextEdit(obj)}
+                                        isDrawing={isDrawing} // Pass isDrawing only, allowing regular tools to not lock the canvas
+                                    />
+                                ))}
+                                <Transformer
+                                    boundBoxFunc={(oldBox, newBox) => newBox.width < 5 || newBox.height < 5 ? oldBox : newBox}
+                                    anchorStroke="#007bff"
+                                    anchorFill="#fff"
+                                    anchorSize={10}
+                                    borderStroke="#007bff"
+                                    borderDash={[6, 2]}
                                 />
-                            ))}
-                            <Transformer
-                                boundBoxFunc={(oldBox, newBox) => newBox.width < 5 || newBox.height < 5 ? oldBox : newBox}
-                                anchorStroke="#007bff"
-                                anchorFill="#fff"
-                                anchorSize={10}
-                                borderStroke="#007bff"
-                                borderDash={[6, 2]}
-                            />
-                            <Rect ref={selectionRectRef} {...selectionBox} fill="rgba(0, 123, 255, 0.2)" stroke="rgba(0, 123, 255, 0.6)" strokeWidth={1} listening={false} />
+                                <Rect ref={selectionRectRef} {...selectionBox} fill="rgba(0, 123, 255, 0.2)" stroke="rgba(0, 123, 255, 0.6)" strokeWidth={1} listening={false} />
 
-                            {/* PREVIEW OF DRAWING */}
-                            {isDrawing && currentRect && (
-                                <Rect
-                                    x={currentRect.x}
-                                    y={currentRect.y}
-                                    width={currentRect.width}
-                                    height={currentRect.height}
-                                    fill="rgba(0, 255, 0, 0.3)"
-                                    stroke="green"
-                                    strokeWidth={1}
-                                    listening={false} // CRITICAL: Prevent preview from blocking mouse events
-                                />
-                            )}
-                            {isDrawing && currentPoints.length > 0 && (
-                                <Line
-                                    points={currentPoints}
-                                    stroke="blue"
-                                    strokeWidth={2}
-                                    dash={[5, 5]}
-                                    listening={false} // CRITICAL: Prevent preview from blocking mouse events
-                                />
-                            )}
+                                {
+                                    isDrawing && currentRect && (
+                                        <Rect
+                                            x={currentRect.x}
+                                            y={currentRect.y}
+                                            width={currentRect.width}
+                                            height={currentRect.height}
+                                            fill="rgba(0, 255, 0, 0.3)"
+                                            stroke="green"
+                                            strokeWidth={1}
+                                            listening={false} // CRITICAL: Prevent preview from blocking mouse events
+                                        />
+                                    )
+                                }
+                                {
+                                    isDrawing && currentPoints.length > 0 && (
+                                        <Line
+                                            points={currentPoints}
+                                            stroke="blue"
+                                            strokeWidth={2}
+                                            dash={[5, 5]}
+                                            listening={false} // CRITICAL: Prevent preview from blocking mouse events
+                                        />
+                                    )
+                                }
 
-                        </Layer>
-                    </Stage>
-                    {editingText && <TextEditor editingState={editingText} onUpdate={handleTextUpdate} onCancel={handleTextCancel} />}
-                </>
-            )}
-        </div>
-    );
-});
+                            </Layer >
+                        </Stage >
+                        {editingText && <TextEditor editingState={editingText} onUpdate={handleTextUpdate} onCancel={handleTextCancel} />}
+                    </>
+                )}
+            </div >
+        );
+    });
 
 export default CanvasPanel;

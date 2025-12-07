@@ -4,7 +4,7 @@ export type DrawingTool = 'walkway' | 'fence' | 'construction-traffic' | 'pen' |
 
 // Typ-vakter (Type Guards)
 export const isLineTool = (tool: string): tool is 'walkway' | 'fence' | 'construction-traffic' | 'pen' =>
-    ['walkway', 'fence', 'construction-traffic', 'pen'].includes(tool);
+    ['walkway', 'fence', 'construction-traffic', 'pen', 'building'].includes(tool);
 
 export const isRectTool = (tool: string): tool is 'text' | 'schakt' => ['text', 'schakt'].includes(tool);
 

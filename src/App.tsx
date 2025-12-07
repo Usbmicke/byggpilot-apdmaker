@@ -26,8 +26,9 @@ const App: React.FC = () => {
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [projectInfo, setProjectInfo] = useState<ProjectInfo>(defaultProjectInfo);
     const [customLegendItems, setCustomLegendItems] = useState<CustomLegendItem[]>(defaultCustomLegend);
-    const [selectedTool, setSelectedTool] = useState<LibraryItem | null>(null);
+    const [isLocked, setIsLocked] = useState(false); // New: Lock State
 
+    const [selectedTool, setSelectedTool] = useState<LibraryItem | null>(null);
     const [isLibraryOpen, setIsLibraryOpen] = useState(true);
     const [isLegendOpen, setIsLegendOpen] = useState(true);
     const [show3D, setShow3D] = useState(false);
@@ -219,6 +220,8 @@ const App: React.FC = () => {
                     toggleLegend={() => setIsLegendOpen(!isLegendOpen)}
                     show3D={show3D}
                     setShow3D={setShow3D}
+                    isLocked={isLocked} // Pass to Header
+                    setIsLocked={setIsLocked} // Pass to Header
                 />
                 <div className="flex flex-1 overflow-hidden">
                     <Library
@@ -235,6 +238,8 @@ const App: React.FC = () => {
                             onSelect={(id) => setSelectedIds(id ? [id] : [])}
                             onObjectChange={(id, attrs) => updateObject(id, attrs, false)} // Debounced update
                             onSnapshotRequest={() => setObjects(objects, true)}
+                            isLocked={isLocked}
+                            setIsLocked={setIsLocked}
                         />
                             : <CanvasPanel
                                 ref={canvasPanelRef}

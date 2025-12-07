@@ -3,7 +3,7 @@
 export type DrawingTool = 'walkway' | 'fence' | 'construction-traffic' | 'pen' | 'text' | 'schakt' | 'crane' | 'building' | 'zone' | 'line' | 'brandslackare' | 'atervinning' | 'forsta-hjalpen' | 'wc' | 'brandfarlig-vara' | 'gasflaskor' | 'ogonskadeskydd' | 'varselstack';
 
 // Typ-vakter (Type Guards)
-export const isLineTool = (tool: string): tool is 'walkway' | 'fence' | 'construction-traffic' | 'pen' => 
+export const isLineTool = (tool: string): tool is 'walkway' | 'fence' | 'construction-traffic' | 'pen' =>
     ['walkway', 'fence', 'construction-traffic', 'pen'].includes(tool);
 
 export const isRectTool = (tool: string): tool is 'text' | 'schakt' => ['text', 'schakt'].includes(tool);
@@ -28,6 +28,7 @@ export const isLine = (obj: APDObject): obj is APDObject & { type: 'line' } => o
 
 // Gränssnitt (Interfaces)
 export interface LibraryItem {
+    id?: string;
     name: string;
     type: string;
     iconUrl?: string;
@@ -65,7 +66,7 @@ export interface APDObject {
     padding?: number;
     align?: string;
     radius?: number;
-    visible?: boolean; 
+    visible?: boolean;
 }
 
 export interface CustomLegendItem {

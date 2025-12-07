@@ -15,8 +15,8 @@ interface DraggableObjectProps {
 const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSelect, onChange, onTextDblClick }) => {
     const shapeRef = useRef<any>();
     const trRef = useRef<any>();
-    
-    const imageUrl = isSymbol(obj.type) || isCrane(obj) ? obj.item.iconUrl : '';
+
+    const imageUrl = (isSymbol(obj.type) || isCrane(obj)) ? (obj.item.iconUrl || '') : '';
     const [image] = useImage(imageUrl, 'anonymous');
 
     useEffect(() => {
@@ -74,40 +74,14 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSe
         };
 
         if (isCrane(obj)) {
-            const radius = obj.radius || 100;
-            const iconSize = obj.width || 50;
-
-            return (
-                <Group
-                    {...commonProps}
-                    ref={shapeRef}
-                    width={radius * 2}
-                    height={radius * 2}
-                    offsetX={radius}
-                    offsetY={radius}
-                >
-                    <Circle
-                        radius={radius}
-                        fill="rgba(255, 215, 0, 0.3)"
-                        stroke="#FFD700"
-                        strokeWidth={2}
-                    />
-                    <KonvaImage
-                        image={image}
-                        width={iconSize}
-                        height={iconSize}
-                        offsetX={iconSize / 2 - radius}
-                        offsetY={iconSize / 2 - radius}
-                        listening={false} // The icon itself should not block interaction
-                    />
-                </Group>
-            );
+            // Use standard image rendering but maintain ID/rotation
+            return <KonvaImage {...commonProps} ref={shapeRef} image={image} width={obj.width} height={obj.height} />;
         }
 
         if (isSymbol(obj.type)) {
             return <KonvaImage {...commonProps} ref={shapeRef} image={image} width={obj.width} height={obj.height} onDblClick={onTextDblClick} onDblTap={onTextDblClick} />;
         }
-        
+
         if (isRectTool(obj.type)) {
             if (obj.type === 'text') {
                 return (
@@ -163,7 +137,7 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSe
                     onTransformEnd={undefined}
                     ref={shapeRef}
                     points={obj.points}
-                    stroke={obj.stroke || '#000000'} 
+                    stroke={obj.stroke || '#000000'}
                     strokeWidth={obj.strokeWidth || 2}
                     dash={obj.dash}
                     tension={obj.type === 'pen' ? 0.5 : 0}
@@ -194,4 +168,4 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSe
     );
 };
 
-export default DraggableObject;
+export default React.memo(DraggableObject);

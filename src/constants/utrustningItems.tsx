@@ -1,17 +1,18 @@
 
 import React from 'react';
-import { LibraryItem } from '../../types/index';
+import { LibraryItem } from '../types/index';
 import { createIcon, SvgIcon } from './itemHelpers';
 import CraneIcon from '../components/icons/craneIcon';
 
 // --- SVG Definitions ---
-const KranSVG = `<svg width="40" height="40" viewBox="0 0 50 50" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect x="22" y="38" width="6" height="8" fill="#6B7280"/>
-<path d="M25 46 L15 48 L15 42 L35 42 L35 48 Z" fill="#4B5563"/>
-<path d="M25 38 L25 15" stroke="#FBBF24" strokeWidth="2"/>
-<path d="M25 25 L45 15" stroke="#FBBF24" strokeWidth="3"/>
-<path d="M45 15 L45 12" stroke="#FBBF24" strokeWidth="2"/>
-<circle cx="25" cy="15" r="3" fill="#FBBF24"/>
+const KranSVG = `<svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Simple Orange Dashed Circle representing reach -->
+  <circle cx="50" cy="50" r="45" stroke="#F97316" stroke-width="2" stroke-dasharray="5 5"/>
+  <!-- Center Point / Tower -->
+  <circle cx="50" cy="50" r="5" fill="#F97316"/>
+  <!-- Simple Cross -->
+  <line x1="50" y1="20" x2="50" y2="80" stroke="#F97316" stroke-width="2"/>
+  <line x1="20" y1="50" x2="80" y2="50" stroke="#F97316" stroke-width="2"/>
 </svg>`;
 
 const ElcentralSVG = `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><rect width="60" height="60" x="2" y="2" fill="#FFAB00" stroke="#000" stroke-width="2" rx="4"/><path d="M30 15 L20 35 H40 L30 55" stroke="#000" stroke-width="6" fill="none" stroke-linejoin="round"/></svg>`;
@@ -29,20 +30,21 @@ const GasIcon = () => <SvgIcon svg={GasSVG} />;
 export const utrustningCategory: { name: string; items: LibraryItem[] } = {
     name: "Utrustning",
     items: [
-        { 
-            type: 'crane', 
-            name: 'Kran', 
-            icon: <CraneIcon />, 
-            iconUrl: createIcon(KranSVG), 
-            initialProps: { 
-                radius: 75,
-                width: 40,
-                height: 40,
-            } 
+        {
+            id: 'crane-std',
+            type: 'crane',
+            name: 'Kran',
+            icon: <CraneIcon />,
+            iconUrl: createIcon(KranSVG),
+            initialProps: {
+                radius: 30, // Reduced from 75 to be less giant
+                width: 60, // Sane default width
+                height: 60, // Sane default height
+            }
         },
-        { type: 'elcentral', name: 'Elcentral', icon: <ElcentralIcon />, iconUrl: createIcon(ElcentralSVG) },
-        { type: 'vatten', name: 'Vattenutkastare', icon: <VattenIcon />, iconUrl: createIcon(VattenSVG) },
-        { type: 'gas', name: 'Gasförvaring', icon: <GasIcon />, iconUrl: createIcon(GasSVG) },
-        { type: 'belysningsmast', name: 'Belysningsmast', icon: <LjusmastIcon />, iconUrl: createIcon(LjusmastSVG) },
+        { id: 'el-std', type: 'elcentral', name: 'Elcentral', icon: <ElcentralIcon />, iconUrl: createIcon(ElcentralSVG) },
+        { id: 'vatten-std', type: 'vatten', name: 'Vattenutkastare', icon: <VattenIcon />, iconUrl: createIcon(VattenSVG) },
+        { id: 'gas-std', type: 'gas', name: 'Gasförvaring', icon: <GasIcon />, iconUrl: createIcon(GasSVG) },
+        { id: 'ljus-std', type: 'belysningsmast', name: 'Belysningsmast', icon: <LjusmastIcon />, iconUrl: createIcon(LjusmastSVG) },
     ]
 };

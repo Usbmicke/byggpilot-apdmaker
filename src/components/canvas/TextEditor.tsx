@@ -61,7 +61,7 @@ export const TextEditor: React.FC<{
             const scrollWidth = textarea.scrollWidth;
             const finalWidth = Math.max(scrollWidth, MIN_WIDTH) + WIDTH_PADDING;
             textarea.style.width = `${finalWidth}px`;
-            
+
             const finalHeight = textarea.scrollHeight;
             onUpdate(text, finalWidth, finalHeight);
         }
@@ -77,7 +77,7 @@ export const TextEditor: React.FC<{
             onCancel();
         }
     };
-    
+
     const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         setText(e.target.value);
     };
@@ -101,13 +101,14 @@ export const TextEditor: React.FC<{
         color: editingState.fill,
         fontFamily: editingState.fontFamily,
         fontSize: `${editingState.fontSize}px`,
-        lineHeight: 1.2, 
-        padding: '5px', 
+        lineHeight: 1.2,
+        padding: '5px',
         margin: 0,
         outline: 'none',
         overflow: 'hidden',
         resize: 'none',
         display: 'block',
+        pointerEvents: 'auto',
     };
 
     return (
@@ -119,7 +120,7 @@ export const TextEditor: React.FC<{
                 onKeyDown={handleKeyDown}
                 style={textareaStyle}
             />
-            <button 
+            <button
                 onClick={handleDone}
                 style={{
                     marginTop: '5px',

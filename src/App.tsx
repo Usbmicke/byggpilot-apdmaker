@@ -21,16 +21,16 @@ const App: React.FC = () => {
     const canvasPanelRef = useRef<CanvasPanelRef>(null);
 
     const { state: objects, setState: setObjects, undo, redo, canUndo, canRedo, resetHistory } = useHistory<APDObject[]>([]);
-    
+
     const [background, setBackground] = useState<{ url: string; width: number; height: number; } | null>(null);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [projectInfo, setProjectInfo] = useState<ProjectInfo>(defaultProjectInfo);
     const [customLegendItems, setCustomLegendItems] = useState<CustomLegendItem[]>(defaultCustomLegend);
     const [selectedTool, setSelectedTool] = useState<LibraryItem | null>(null);
-    
+
     const [isLibraryOpen, setIsLibraryOpen] = useState(true);
     const [isLegendOpen, setIsLegendOpen] = useState(true);
-    const [show3D, setShow3D] = useState(false); 
+    const [show3D, setShow3D] = useState(false);
 
     useEffect(() => {
         const backgroundUrl = background?.url;
@@ -50,13 +50,13 @@ const App: React.FC = () => {
         if (clickedOnEmpty) setSelectedIds([]);
     };
 
-    const addObject = useCallback((item: LibraryItem, position: {x: number, y: number}, extraProps: Partial<APDObject> = {}): APDObject => {
+    const addObject = useCallback((item: LibraryItem, position: { x: number, y: number }, extraProps: Partial<APDObject> = {}): APDObject => {
         const baseProps = { ...item.initialProps, width: item.width || item.initialProps?.width || 50, height: item.height || item.initialProps?.height || 50 };
-        
+
         let newObject: APDObject = {
             id: uuidv4(), rotation: 0, scaleX: 1, scaleY: 1,
             ...baseProps,
-            type: item.type, item: item, quantity: 1, 
+            type: item.type, item: item, quantity: 1,
             x: position.x,
             y: position.y,
             visible: true,
@@ -81,7 +81,7 @@ const App: React.FC = () => {
                 align: 'center',
             };
         }
-        
+
         setObjects([...objects, newObject], true);
         return newObject;
     }, [objects, setObjects]);
@@ -97,8 +97,8 @@ const App: React.FC = () => {
         }
     };
 
-    const handleUpdateGroupQuantity = (itemId: string, newQuantity: number) => {
-        const groupObjects = objects.filter(obj => obj.item.id === itemId);
+    const handleUpdateGroupQuantity = (groupId: string, newQuantity: number) => {
+        const groupObjects = objects.filter(obj => (obj.item.id || obj.type) === groupId);
         const currentTotal = groupObjects.reduce((sum, obj) => sum + obj.quantity, 0);
         const diff = newQuantity - currentTotal;
 
@@ -129,7 +129,7 @@ const App: React.FC = () => {
         }
         setObjects(newObjects, true);
     };
-    
+
     const resetProjectForNewBackground = (newBackground: { url: string; width: number; height: number; }) => {
         setBackground(newBackground);
         resetHistory([]);
@@ -163,7 +163,7 @@ const App: React.FC = () => {
             } else {
                 throw new Error('Filtypen stöds inte. Välj en .apd, bild- eller PDF-fil.');
             }
-            
+
             setProjectInfo(data.projectInfo);
             setBackground(data.background);
             resetHistory(data.objects);
@@ -181,32 +181,32 @@ const App: React.FC = () => {
     const clearProject = () => {
         toast((t) => (
             <span className='flex flex-col gap-3'>
-              Är du säker? Allt kommer att raderas.
-              <div className='flex gap-2'>
-                <button className='bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded w-full' onClick={() => {
-                    setBackground(null);
-                    resetHistory([]);
-                    setProjectInfo(defaultProjectInfo);
-                    setCustomLegendItems(defaultCustomLegend);
-                    setSelectedIds([]);
-                    toast.dismiss(t.id);
-                    toast.success('Projektet har rensats!');
-                }}>
-                  Ja, Rensa Allt
-                </button>
-                <button className='bg-slate-500 hover:bg-slate-400 text-white font-bold py-2 px-4 rounded w-full' onClick={() => toast.dismiss(t.id)}>
-                  Avbryt
-                </button>
-              </div>
+                Är du säker? Allt kommer att raderas.
+                <div className='flex gap-2'>
+                    <button className='bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded w-full' onClick={() => {
+                        setBackground(null);
+                        resetHistory([]);
+                        setProjectInfo(defaultProjectInfo);
+                        setCustomLegendItems(defaultCustomLegend);
+                        setSelectedIds([]);
+                        toast.dismiss(t.id);
+                        toast.success('Projektet har rensats!');
+                    }}>
+                        Ja, Rensa Allt
+                    </button>
+                    <button className='bg-slate-500 hover:bg-slate-400 text-white font-bold py-2 px-4 rounded w-full' onClick={() => toast.dismiss(t.id)}>
+                        Avbryt
+                    </button>
+                </div>
             </span>
-          ), { duration: 6000 });
+        ), { duration: 6000 });
     };
 
     return (
         <DndProvider backend={HTML5Backend}>
             <div className="flex flex-col h-screen bg-slate-900 text-white font-sans overflow-hidden">
                 <Toaster position="bottom-center" toastOptions={{ className: 'bg-slate-700 text-white', duration: 4000 }} />
-                <Header 
+                <Header
                     stageRef={stageRef}
                     background={background}
                     handleFile={handleFile}
@@ -221,52 +221,52 @@ const App: React.FC = () => {
                     setShow3D={setShow3D}
                 />
                 <div className="flex flex-1 overflow-hidden">
-                    <Library 
-                        isOpen={isLibraryOpen} 
-                        selectedTool={selectedTool} 
+                    <Library
+                        isOpen={isLibraryOpen}
+                        selectedTool={selectedTool}
                         onSelectTool={setSelectedTool}
                     />
                     <div className="flex-1 flex flex-col relative">
-                        {show3D ? <ThreeDView 
-                                    objects={objects}
-                                    background={background}
-                                    libraryCategories={LIBRARY_CATEGORIES}
-                                    selectedId={selectedIds.length > 0 ? selectedIds[0] : null}
-                                    onSelect={(id) => setSelectedIds(id ? [id] : [])}
-                                    onObjectChange={(id, attrs) => updateObject(id, attrs, false)} // Debounced update
-                                    onSnapshotRequest={() => setObjects(objects, true)}
-                                />
-                               : <CanvasPanel 
-                                    ref={canvasPanelRef}
-                                    stageRef={stageRef}
-                                    objects={objects}
-                                    background={background}
-                                    selectedIds={selectedIds}
-                                    setSelectedIds={setSelectedIds}
-                                    checkDeselect={checkDeselect}
-                                    addObject={addObject}
-                                    updateObject={updateObject}
-                                    removeObjects={removeObjects}
-                                    handleFile={handleFile}
-                                    undo={undo}
-                                    redo={redo}
-                                    canUndo={canUndo}
-                                    canRedo={canRedo}
-                                    selectedTool={selectedTool}
-                                    setSelectedTool={setSelectedTool}
-                                    onTextCreate={handleTextCreate}
-                                />}
+                        {show3D ? <ThreeDView
+                            objects={objects}
+                            background={background}
+                            libraryCategories={LIBRARY_CATEGORIES}
+                            selectedId={selectedIds.length > 0 ? selectedIds[0] : null}
+                            onSelect={(id) => setSelectedIds(id ? [id] : [])}
+                            onObjectChange={(id, attrs) => updateObject(id, attrs, false)} // Debounced update
+                            onSnapshotRequest={() => setObjects(objects, true)}
+                        />
+                            : <CanvasPanel
+                                ref={canvasPanelRef}
+                                stageRef={stageRef}
+                                objects={objects}
+                                background={background}
+                                selectedIds={selectedIds}
+                                setSelectedIds={setSelectedIds}
+                                checkDeselect={checkDeselect}
+                                addObject={addObject}
+                                updateObject={updateObject}
+                                removeObjects={removeObjects}
+                                handleFile={handleFile}
+                                undo={undo}
+                                redo={redo}
+                                canUndo={canUndo}
+                                canRedo={canRedo}
+                                selectedTool={selectedTool}
+                                setSelectedTool={setSelectedTool}
+                                onTextCreate={handleTextCreate}
+                            />}
                     </div>
-                    {background && <Legend 
-                                    isOpen={isLegendOpen}
-                                    projectInfo={projectInfo}
-                                    setProjectInfo={setProjectInfo}
-                                    objects={objects}
-                                    customItems={customLegendItems}
-                                    setCustomItems={setCustomLegendItems}
-                                    onRemoveObject={removeObjects}
-                                    onUpdateObject={handleUpdateGroupQuantity}
-                                 />}
+                    {background && <Legend
+                        isOpen={isLegendOpen}
+                        projectInfo={projectInfo}
+                        setProjectInfo={setProjectInfo}
+                        objects={objects}
+                        customItems={customLegendItems}
+                        setCustomItems={setCustomLegendItems}
+                        onRemoveObject={removeObjects}
+                        onUpdateObject={handleUpdateGroupQuantity}
+                    />}
                 </div>
             </div>
         </DndProvider>

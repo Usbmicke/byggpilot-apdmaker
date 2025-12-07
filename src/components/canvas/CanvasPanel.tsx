@@ -10,14 +10,15 @@ import DraggableObject from '../draggable/DraggableObject';
 import { EditingTextState, TextEditor } from './TextEditor';
 import { useStageInteraction } from '../../hooks/useStageInteraction';
 import { useDrawing } from '../../hooks/useDrawing';
+import { useCanvasDrawing } from '../../hooks/useCanvasDrawing';
 import { ItemTypes } from '../library/LibraryPanel';
 
 // --- Helper Components ---
 
 const UndoRedoControls = React.memo(({ undo, redo, canUndo, canRedo }: { undo: () => void, redo: () => void, canUndo: boolean, canRedo: boolean }) => (
     <div className="absolute top-4 right-4 z-10 flex gap-2">
-        <button onClick={undo} disabled={!canUndo} className="bg-slate-700/80 hover:bg-slate-600/80 backdrop-blur-sm text-white font-bold p-2 rounded-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"><svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 19H6.22857C4.54714 19 3.55357 17.5119 4.10238 15.9881L5.78333 11.5833M10 19V16.5C10 14.8333 11.3333 13.5 13 13.5H15.5M10 19H14C15.1046 19 16 18.1046 16 17V15.5M5.78333 11.5833L7.14524 8.2381C7.59762 7.15476 8.65952 6.5 9.80952 6.5H16.5C17.8807 6.5 19 7.61929 19 9V12.5C19 13.8807 17.8807 15 16.5 15H13C11.3333 15 10 16.3333 10 18V19M5.78333 11.5833C4.10238 11.5833 3 10.481 3 8.8V6.2C3 5.0799 3.89543 4.2 5 4.2H8.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
-        <button onClick={redo} disabled={!canRedo} className="bg-slate-700/80 hover:bg-slate-600/80 backdrop-blur-sm text-white font-bold p-2 rounded-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"><svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" transform="scale(-1, 1)"><path d="M10 19H6.22857C4.54714 19 3.55357 17.5119 4.10238 15.9881L5.78333 11.5833M10 19V16.5C10 14.8333 11.3333 13.5 13 13.5H15.5M10 19H14C15.1046 19 16 18.1046 16 17V15.5M5.78333 11.5833L7.14524 8.2381C7.59762 7.15476 8.65952 6.5 9.80952 6.5H16.5C17.8807 6.5 19 7.61929 19 9V12.5C19 13.8807 17.8807 15 16.5 15H13C11.3333 15 10 16.3333 10 18V19M5.78333 11.5833C4.10238 11.5833 3 10.481 3 8.8V6.2C3 5.0799 3.89543 4.2 5 4.2H8.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
+        <button onClick={undo} disabled={!canUndo} className="bg-slate-700/80 hover:bg-slate-600/80 backdrop-blur-sm text-white font-bold p-2 rounded-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"><svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 19H6.22857C4.54714 19 3.55357 17.5119 4.10238 15.9881L5.78333 11.5833M10 19V16.5C10 14.8333 11.3333 13.5 13 13.5H15.5M10 19H14C15.1046 19 16 18.1046 16 17V15.5M5.78333 11.5833L7.14524 8.2381C7.59762 7.15476 8.65952 6.5 9.80952 6.5H16.5C17.8807 6.5 19 7.61929 19 9V12.5C19 13.8807 17.8807 15 16.5 15H13C11.3333 15 10 16.3333 10 18V19M5.78333 11.5833C4.10238 11.5833 3 10.481 3 8.8V6.2C3 5.0799 3.89543 4.2 5 4.2H8.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg></button>
+        <button onClick={redo} disabled={!canRedo} className="bg-slate-700/80 hover:bg-slate-600/80 backdrop-blur-sm text-white font-bold p-2 rounded-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"><svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" transform="scale(-1, 1)"><path d="M10 19H6.22857C4.54714 19 3.55357 17.5119 4.10238 15.9881L5.78333 11.5833M10 19V16.5C10 14.8333 11.3333 13.5 13 13.5H15.5M10 19H14C15.1046 19 16 18.1046 16 17V15.5M5.78333 11.5833L7.14524 8.2381C7.59762 7.15476 8.65952 6.5 9.80952 6.5H16.5C17.8807 6.5 19 7.61929 19 9V12.5C19 13.8807 17.8807 15 16.5 15H13C11.3333 15 10 16.3333 10 18V19M5.78333 11.5833C4.10238 11.5833 3 10.481 3 8.8V6.2C3 5.0799 3.89543 4.2 5 4.2H8.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg></button>
     </div>
 ));
 
@@ -74,8 +75,8 @@ export interface CanvasPanelRef {
     startTextEdit: (obj: APDObject) => void;
 }
 
-const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>(({ 
-    stageRef, objects, background, selectedIds, setSelectedIds, checkDeselect, addObject, updateObject, 
+const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>(({
+    stageRef, objects, background, selectedIds, setSelectedIds, checkDeselect, addObject, updateObject,
     removeObjects, handleFile, canUndo, canRedo, undo, redo, selectedTool, setSelectedTool, onTextCreate
 }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -83,28 +84,41 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>(({
     const [editingText, setEditingText] = useState<EditingTextState | null>(null);
     const [bgImage] = useImage(background?.url || '', 'anonymous');
 
-    const { 
+    const {
         drop, isOver, canDrop, draggedItemType
     } = useDrawing({ stageRef, selectedTool, addObject, setSelectedTool, onTextCreate });
 
-    const isInteractionBlocked = !!editingText || (!!selectedTool && (isLineTool(selectedTool.type) || isRectTool(selectedTool.type)));
+    // --- Drawing Hook Integration ---
+    const {
+        isDrawing,
+        currentPoints,
+        currentRect,
+        handleMouseDown: handleDrawingMouseDown,
+        handleMouseMove: handleDrawingMouseMove,
+        handleMouseUp: handleDrawingMouseUp,
+        handleDoubleClick: handleDrawingDoubleClick,
+        finishDrawing,
+        cancelDrawing
+    } = useCanvasDrawing({ stageRef, selectedTool, addObject, setSelectedTool });
 
-    const { 
+    const isInteractionBlocked = !!editingText || isDrawing || (!!selectedTool && (isLineTool(selectedTool.type) || isRectTool(selectedTool.type)));
+
+    const {
         selectionBox, selectionRectRef,
         handleMouseDown: handleSelectionMouseDown,
         handleMouseMove: handleSelectionMouseMove,
         handleMouseUp: handleSelectionMouseUp,
-        handleWheel 
-    } = useStageInteraction({ stageRef, objects, checkDeselect, isInteractionBlocked });
+        handleWheel
+    } = useStageInteraction({ stageRef, objects, selectedIds, setSelectedIds, checkDeselect, isInteractionBlocked });
 
     useEffect(() => { if (containerRef.current) drop(containerRef.current); }, [drop]);
-    
+
     const handleTextDblClick = useCallback((obj: APDObject) => {
         const stage = stageRef.current; if (!stage) return;
         const textNode = stage.findOne('.' + obj.id);
         if (!textNode) return;
-        
-        setSelectedIds([]); 
+
+        setSelectedIds([]);
         updateObject(obj.id, { visible: false }, false);
 
         // Get scaled and rotated position
@@ -114,7 +128,7 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>(({
         const stageBox = stage.container().getBoundingClientRect();
 
         setEditingText({
-            id: obj.id, 
+            id: obj.id,
             text: obj.text || '',
             x: stageBox.left + pos.x,
             y: stageBox.top + pos.y,
@@ -132,7 +146,7 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>(({
     }));
 
     const handleObjectClick = (e: any) => {
-        if (editingText) return;
+        if (editingText || isDrawing) return;
         const id = e.target.id();
         const isShift = e.evt.shiftKey;
         const newSelectedIds = isShift ? (selectedIds.includes(id) ? selectedIds.filter(sid => sid !== id) : [...selectedIds, id]) : (selectedIds.length === 1 && selectedIds[0] === id ? [] : [id]);
@@ -141,19 +155,50 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>(({
 
     const handleStageMouseDown = (e: any) => {
         if (e.target !== e.target.getStage()) return;
-        handleSelectionMouseDown(e);
-        checkDeselect(e);
+
+        if (selectedTool && (isLineTool(selectedTool.type) || isRectTool(selectedTool.type))) {
+            handleDrawingMouseDown(e);
+        } else {
+            handleSelectionMouseDown(e);
+            checkDeselect(e);
+        }
     };
+
+    const handleStageMouseMove = (e: any) => {
+        if (isDrawing) {
+            handleDrawingMouseMove();
+        } else {
+            handleSelectionMouseMove(e);
+        }
+    }
+
+    const handleStageMouseUp = (e: any) => {
+        if (isDrawing) {
+            handleDrawingMouseUp(e);
+        } else {
+            handleSelectionMouseUp(e);
+        }
+    }
 
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
         if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
         if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); redo(); }
-        if (e.key === 'Delete' || e.key === 'Backspace') { if (selectedIds.length > 0) removeObjects(selectedIds); }
-        if (e.key === 'Escape') { 
-            setSelectedIds([]);
-            if (selectedTool) setSelectedTool(null);
+        if (e.key === 'Delete' || e.key === 'Backspace') { if (selectedIds.length > 0 && !editingText) removeObjects(selectedIds); }
+        if (e.key === 'Escape') {
+            if (isDrawing) {
+                cancelDrawing();
+                setSelectedTool(null);
+            } else {
+                setSelectedIds([]);
+                if (selectedTool) setSelectedTool(null);
+            }
         }
-    }, [selectedIds.length, removeObjects, undo, redo, setSelectedIds, selectedTool, setSelectedTool]);
+        if (e.key === 'Enter') {
+            if (isDrawing) {
+                finishDrawing();
+            }
+        }
+    }, [selectedIds.length, removeObjects, undo, redo, setSelectedIds, selectedTool, setSelectedTool, isDrawing, cancelDrawing, finishDrawing, editingText]);
 
     useEffect(() => {
         const checkSize = () => { if (containerRef.current) setSize({ width: containerRef.current.offsetWidth, height: containerRef.current.offsetHeight }); };
@@ -198,8 +243,9 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>(({
                         ref={stageRef}
                         width={size.width} height={size.height}
                         onMouseDown={handleStageMouseDown}
-                        onMouseMove={handleSelectionMouseMove}
-                        onMouseUp={handleSelectionMouseUp}
+                        onMouseMove={handleStageMouseMove}
+                        onMouseUp={handleStageMouseUp}
+                        onDblClick={handleDrawingDoubleClick}
                         onWheel={handleWheel}
                         draggable={!isInteractionBlocked}
                     >
@@ -208,24 +254,46 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>(({
                         </Layer>
                         <Layer>
                             {objects.map((obj) => (
-                                <DraggableObject 
-                                    key={obj.id} 
-                                    obj={obj} 
-                                    isSelected={selectedIds.includes(obj.id)} 
-                                    onSelect={handleObjectClick} 
-                                    onChange={(attrs, imm) => updateObject(obj.id, attrs, imm)} 
+                                <DraggableObject
+                                    key={obj.id}
+                                    obj={obj}
+                                    isSelected={selectedIds.includes(obj.id)}
+                                    onSelect={handleObjectClick}
+                                    onChange={(attrs, imm) => updateObject(obj.id, attrs, imm)}
                                     onTextDblClick={() => isText(obj) && handleTextDblClick(obj)}
                                 />
                             ))}
-                            <Transformer 
-                                boundBoxFunc={(oldBox, newBox) => newBox.width < 5 || newBox.height < 5 ? oldBox : newBox} 
-                                anchorStroke="#007bff" 
-                                anchorFill="#fff" 
-                                anchorSize={10} 
-                                borderStroke="#007bff" 
-                                borderDash={[6, 2]} 
+                            <Transformer
+                                boundBoxFunc={(oldBox, newBox) => newBox.width < 5 || newBox.height < 5 ? oldBox : newBox}
+                                anchorStroke="#007bff"
+                                anchorFill="#fff"
+                                anchorSize={10}
+                                borderStroke="#007bff"
+                                borderDash={[6, 2]}
                             />
                             <Rect ref={selectionRectRef} {...selectionBox} fill="rgba(0, 123, 255, 0.2)" stroke="rgba(0, 123, 255, 0.6)" strokeWidth={1} listening={false} />
+
+                            {/* PREVIEW OF DRAWING */}
+                            {isDrawing && currentRect && (
+                                <Rect
+                                    x={currentRect.x}
+                                    y={currentRect.y}
+                                    width={currentRect.width}
+                                    height={currentRect.height}
+                                    fill="rgba(0, 255, 0, 0.3)"
+                                    stroke="green"
+                                    strokeWidth={1}
+                                />
+                            )}
+                            {isDrawing && currentPoints.length > 0 && (
+                                <Line
+                                    points={currentPoints}
+                                    stroke="blue"
+                                    strokeWidth={2}
+                                    dash={[5, 5]}
+                                />
+                            )}
+
                         </Layer>
                     </Stage>
                     {editingText && <TextEditor editingState={editingText} onUpdate={handleTextUpdate} onCancel={handleTextCancel} />}

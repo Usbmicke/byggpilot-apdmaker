@@ -1,8 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDrag } from 'react-dnd';
+import toast from 'react-hot-toast';
 import { LIBRARY_CATEGORIES } from '../../constants/libraryItems';
-import { LibraryItem, isLineTool } from '../../types/index';
+import { LibraryItem, isLineTool, isRectTool } from '../../types/index';
 
 export const ItemTypes = {
     LIBRARY_ITEM: 'library-item',
@@ -11,33 +12,38 @@ export const ItemTypes = {
 interface DraggableLibraryItemProps {
     item: LibraryItem;
     onClick: (item: LibraryItem) => void;
+    isSelected: boolean;
 }
 
-const DraggableLibraryItem: React.FC<DraggableLibraryItemProps> = ({ item, onClick }) => {
+const DraggableLibraryItem: React.FC<DraggableLibraryItemProps> = ({ item, onClick, isSelected }) => {
+    const isDrawingTool = isLineTool(item.type) || isRectTool(item.type);
+
     const [{ isDragging }, drag, preview] = useDrag(() => ({
         type: ItemTypes.LIBRARY_ITEM,
         item: item,
-        canDrag: !isLineTool(item.type),
+        canDrag: !isDrawingTool,
         collect: (monitor) => ({
             isDragging: !!monitor.isDragging(),
         }),
     }));
 
     const handleClick = () => {
-        if (isLineTool(item.type)) {
+        if (isDrawingTool) {
             onClick(item);
         }
     };
 
-    const title = isLineTool(item.type)
+    const title = isDrawingTool
         ? `Klicka för att aktivera ${item.name} och rita`
         : `Dra ut ${item.name} på ritningen`;
+
+    const selectedClass = isSelected ? 'border-blue-500 bg-slate-700' : 'border-slate-700';
 
     return (
         <div
             ref={drag}
             onClick={handleClick}
-            className={`flex items-center p-3 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700 hover:border-blue-500 shadow-sm ${isLineTool(item.type) ? 'cursor-pointer' : 'cursor-grab'}`}
+            className={`flex items-center p-3 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors border shadow-sm ${isDrawingTool ? 'cursor-pointer' : 'cursor-grab'} ${selectedClass}`}
             style={{ opacity: isDragging ? 0.4 : 1 }}
             title={title}
         >
@@ -49,7 +55,14 @@ const DraggableLibraryItem: React.FC<DraggableLibraryItemProps> = ({ item, onCli
     );
 };
 
-const Category: React.FC<{ name: string; items: LibraryItem[]; onSelectTool: (item: LibraryItem) => void }> = ({ name, items, onSelectTool }) => {
+interface CategoryProps {
+    name: string;
+    items: LibraryItem[];
+    onSelectTool: (item: LibraryItem) => void;
+    selectedTool: LibraryItem | null;
+}
+
+const Category: React.FC<CategoryProps> = ({ name, items, onSelectTool, selectedTool }) => {
     const [isOpen, setIsOpen] = useState(true);
 
     return (
@@ -65,9 +78,10 @@ const Category: React.FC<{ name: string; items: LibraryItem[]; onSelectTool: (it
                 <div className="pt-2 space-y-2">
                     {items.map(item => (
                         <DraggableLibraryItem
-                            key={item.type} // Använder type som key, förutsatt att de är unika inom en kategori
+                            key={item.type}
                             item={item}
                             onClick={onSelectTool}
+                            isSelected={selectedTool?.type === item.type}
                         />
                     ))}
                 </div>
@@ -78,10 +92,22 @@ const Category: React.FC<{ name: string; items: LibraryItem[]; onSelectTool: (it
 
 interface LibraryPanelProps {
     isOpen: boolean;
-    onSelectTool: (item: LibraryItem) => void;
+    selectedTool: LibraryItem | null;
+    onSelectTool: (item: LibraryItem | null) => void;
 }
 
-const LibraryPanel: React.FC<LibraryPanelProps> = ({ isOpen, onSelectTool }) => {
+const LibraryPanel: React.FC<LibraryPanelProps> = ({ isOpen, selectedTool, onSelectTool }) => {
+    
+    const handleSelectTool = (item: LibraryItem) => {
+        if (selectedTool?.type === item.type) {
+            onSelectTool(null); // Deselect if clicking the same tool
+            toast.dismiss(); // Dismiss any active tool toast
+        } else {
+            onSelectTool(item);
+            toast.loading(`Ritverktyg '${item.name}' är aktivt.`, { id: 'tool-toast', duration: Infinity });
+        }
+    };
+
     return (
         <aside 
              className={`w-80 max-w-full bg-slate-900 text-slate-300 p-4 overflow-y-auto flex-shrink-0 transition-transform duration-300 ease-in-out border-r border-slate-700
@@ -94,7 +120,8 @@ const LibraryPanel: React.FC<LibraryPanelProps> = ({ isOpen, onSelectTool }) => 
                     key={category.name} 
                     name={category.name} 
                     items={category.items} 
-                    onSelectTool={onSelectTool}
+                    onSelectTool={handleSelectTool}
+                    selectedTool={selectedTool}
                 />
             ))}
         </aside>

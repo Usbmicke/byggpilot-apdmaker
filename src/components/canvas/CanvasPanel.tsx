@@ -1,11 +1,11 @@
 
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { Stage, Layer, Image as KonvaImage, Line, Transformer, Rect } from 'react-konva';
 import useImage from 'use-image';
 import { useDrop } from 'react-dnd';
 import { NativeTypes } from 'react-dnd-html5-backend';
 
-import { APDObject, LibraryItem, DrawingTool, isRectTool, isLineTool } from '../../types/index';
+import { APDObject, LibraryItem, DrawingTool, isRectTool, isLineTool, isText } from '../../types/index';
 import DraggableObject from '../draggable/DraggableObject';
 import { EditingTextState, TextEditor } from './TextEditor';
 import { useStageInteraction } from '../../hooks/useStageInteraction';
@@ -50,8 +50,6 @@ const DropIndicator: React.FC<{ isOver: boolean }> = ({ isOver }) => {
     );
 }
 
-// --- Main Canvas Panel Component ---
-
 interface CanvasPanelProps {
     stageRef: React.RefObject<any>;
     objects: APDObject[];
@@ -69,35 +67,27 @@ interface CanvasPanelProps {
     redo: () => void;
     selectedTool: LibraryItem | null;
     setSelectedTool: (item: LibraryItem | null) => void;
+    onTextCreate: (obj: APDObject) => void; // Callback to trigger text editing
 }
 
-const CanvasPanel: React.FC<CanvasPanelProps> = ({ 
+export interface CanvasPanelRef {
+    startTextEdit: (obj: APDObject) => void;
+}
+
+const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>(({ 
     stageRef, objects, background, selectedIds, setSelectedIds, checkDeselect, addObject, updateObject, 
-    removeObjects, handleFile, canUndo, canRedo, undo, redo, selectedTool, setSelectedTool
-}) => {
+    removeObjects, handleFile, canUndo, canRedo, undo, redo, selectedTool, setSelectedTool, onTextCreate
+}, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
-    const trRef = useRef<any>(null);
-    const [bgImage] = useImage(background?.url || '', 'anonymous');
     const [size, setSize] = useState({ width: 0, height: 0 });
     const [editingText, setEditingText] = useState<EditingTextState | null>(null);
-    const [textToEditOnLoad, setTextToEditOnLoad] = useState<string | null>(null);
+    const [bgImage] = useImage(background?.url || '', 'anonymous');
 
-    const {
-        drop, isOver, canDrop, draggedItemType, tempLinePoints, drawingState, isInteractionBlocked: isDrawingBlocked,
-        startDrawing, cancelDrawing,
-        handleStageClick: handleDrawingClick,
-        handleMouseMove: handleDrawingMouseMove,
-        handleContextMenu: handleDrawingContextMenu,
-    } = useDrawing({ stageRef, addObject, handleFile, setTextToEditOnLoad });
+    const { 
+        drop, isOver, canDrop, draggedItemType
+    } = useDrawing({ stageRef, selectedTool, addObject, setSelectedTool, onTextCreate });
 
-    useEffect(() => {
-        if (selectedTool && isLineTool(selectedTool.type)) {
-            startDrawing(selectedTool);
-            setSelectedTool(null);
-        }
-    }, [selectedTool, startDrawing, setSelectedTool]);
-
-    const isInteractionBlocked = isDrawingBlocked || !!editingText;
+    const isInteractionBlocked = !!editingText || (!!selectedTool && (isLineTool(selectedTool.type) || isRectTool(selectedTool.type)));
 
     const { 
         selectionBox, selectionRectRef,
@@ -105,7 +95,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         handleMouseMove: handleSelectionMouseMove,
         handleMouseUp: handleSelectionMouseUp,
         handleWheel 
-    } = useStageInteraction({ stageRef, objects, selectedIds, setSelectedIds, checkDeselect, isInteractionBlocked });
+    } = useStageInteraction({ stageRef, objects, checkDeselect, isInteractionBlocked });
 
     useEffect(() => { if (containerRef.current) drop(containerRef.current); }, [drop]);
     
@@ -113,38 +103,36 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         const stage = stageRef.current; if (!stage) return;
         const textNode = stage.findOne('.' + obj.id);
         if (!textNode) return;
-        setSelectedIds([]); trRef.current?.nodes([]);
+        
+        setSelectedIds([]); 
         updateObject(obj.id, { visible: false }, false);
-        const textPosition = textNode.getAbsolutePosition();
+
+        // Get scaled and rotated position
+        const transform = textNode.getAbsoluteTransform();
+        const pos = { x: transform.getMatrix()[4], y: transform.getMatrix()[5] };
+
         const stageBox = stage.container().getBoundingClientRect();
+
         setEditingText({
             id: obj.id, 
             text: obj.text || '',
-            x: stageBox.left + textPosition.x, 
-            y: stageBox.top + textPosition.y,
-            width: textNode.getAttr('width') * textNode.getAttr('scaleX'),
-            height: textNode.getAttr('height') * textNode.getAttr('scaleY'),
-            fontSize: textNode.getAttr('fontSize'),
-            fontFamily: textNode.getAttr('fontFamily'),
-            fill: textNode.getAttr('fill'),
-            rotation: textNode.getAttr('rotation'),
+            x: stageBox.left + pos.x,
+            y: stageBox.top + pos.y,
+            width: textNode.width() * textNode.scaleX(),
+            height: textNode.height() * textNode.scaleY(),
+            fontSize: obj.fontSize || 16,
+            fontFamily: obj.fontFamily || 'sans-serif',
+            fill: obj.fill || '#000',
+            rotation: textNode.rotation(),
         });
     }, [stageRef, updateObject, setSelectedIds]);
 
-    useEffect(() => {
-        if (textToEditOnLoad && stageRef.current) {
-            const objectToEdit = objects.find(o => o.id === textToEditOnLoad);
-            if (objectToEdit) {
-                setTimeout(() => {
-                    handleTextDblClick(objectToEdit);
-                    setTextToEditOnLoad(null);
-                }, 50);
-            }
-        }
-    }, [textToEditOnLoad, objects, handleTextDblClick]);
+    useImperativeHandle(ref, () => ({
+        startTextEdit: handleTextDblClick
+    }));
 
     const handleObjectClick = (e: any) => {
-        if (editingText || drawingState) return;
+        if (editingText) return;
         const id = e.target.id();
         const isShift = e.evt.shiftKey;
         const newSelectedIds = isShift ? (selectedIds.includes(id) ? selectedIds.filter(sid => sid !== id) : [...selectedIds, id]) : (selectedIds.length === 1 && selectedIds[0] === id ? [] : [id]);
@@ -152,42 +140,30 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     };
 
     const handleStageMouseDown = (e: any) => {
-        if (drawingState) return;
-        handleSelectionMouseDown(e);
-    };
-
-    const handleStageMouseMove = (e: any) => {
-        handleSelectionMouseMove(e);
-        handleDrawingMouseMove(e);
-    };
-
-    const handleStageClick = (e: any) => {
         if (e.target !== e.target.getStage()) return;
-        if (editingText) { document.querySelector('textarea')?.blur(); return; }
-        handleDrawingClick(e);
+        handleSelectionMouseDown(e);
+        checkDeselect(e);
     };
-    
+
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
-        if (e.key === 'Escape') {
-            if (drawingState) cancelDrawing();
-            if (selectedIds.length > 0) setSelectedIds([]);
-        }
         if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
         if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); redo(); }
         if (e.key === 'Delete' || e.key === 'Backspace') { if (selectedIds.length > 0) removeObjects(selectedIds); }
-
-    }, [drawingState, cancelDrawing, selectedIds, setSelectedIds, undo, redo, removeObjects]);
-
-    useEffect(() => {
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [handleKeyDown]);
+        if (e.key === 'Escape') { 
+            setSelectedIds([]);
+            if (selectedTool) setSelectedTool(null);
+        }
+    }, [selectedIds.length, removeObjects, undo, redo, setSelectedIds, selectedTool, setSelectedTool]);
 
     useEffect(() => {
         const checkSize = () => { if (containerRef.current) setSize({ width: containerRef.current.offsetWidth, height: containerRef.current.offsetHeight }); };
         checkSize(); window.addEventListener('resize', checkSize);
-        return () => window.removeEventListener('resize', checkSize);
-    }, []);
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+            window.removeEventListener('resize', checkSize);
+            window.removeEventListener('keydown', handleKeyDown);
+        }
+    }, [handleKeyDown]);
 
     useEffect(() => {
         if (background && bgImage && stageRef.current && size.width > 0) {
@@ -197,14 +173,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
             stage.position({ x: (size.width - background.width * scale) / 2, y: (size.height - background.height * scale) / 2 });
         }
     }, [background, bgImage, size, stageRef]);
-
-    useEffect(() => {
-        if (trRef.current && stageRef.current) {
-            const nodes = selectedIds.map(id => stageRef.current.findOne('.' + id)).filter(Boolean);
-            trRef.current.nodes(nodes);
-            trRef.current.getLayer()?.batchDraw();
-        }
-    }, [selectedIds, objects]);
 
     const handleTextUpdate = (newText: string, newWidth: number, newHeight: number) => {
         if (editingText) {
@@ -220,64 +188,43 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         }
     };
 
-    const handleTransformEnd = () => {
-        if (!trRef.current) return;
-        trRef.current.nodes().forEach((node: any) => {
-            const scaleX = node.scaleX();
-            const scaleY = node.scaleY();
-            node.scaleX(1);
-            node.scaleY(1);
-            updateObject(
-                node.id(), 
-                { 
-                    x: node.x(), 
-                    y: node.y(), 
-                    rotation: node.rotation(), 
-                    width: Math.max(5, node.width() * scaleX), 
-                    height: Math.max(5, node.height() * scaleY), 
-                }, 
-                true
-            );
-        });
-    };
-
     return (
-        <div className={`flex-1 relative overflow-hidden bg-slate-900 touch-none ${drawingState ? 'cursor-crosshair' : 'cursor-grab'}`} ref={containerRef}>
+        <div className={`flex-1 relative overflow-hidden bg-slate-900 touch-none ${selectedTool ? 'cursor-crosshair' : 'cursor-grab'}`} ref={containerRef}>
             {!background ? <WelcomeScreen onFileSelect={handleFile} /> : (
                 <>
-                    <DropIndicator isOver={isOver && canDrop && draggedItemType === ItemTypes.FILE} />
+                    <DropIndicator isOver={isOver && canDrop && draggedItemType === NativeTypes.FILE} />
                     <UndoRedoControls undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo} />
                     <Stage
                         ref={stageRef}
                         width={size.width} height={size.height}
                         onMouseDown={handleStageMouseDown}
-                        onMouseMove={handleStageMouseMove}
+                        onMouseMove={handleSelectionMouseMove}
                         onMouseUp={handleSelectionMouseUp}
-                        onClick={handleStageClick}
-                        onContextMenu={handleDrawingContextMenu}
                         onWheel={handleWheel}
-                        draggable={!isInteractionBlocked && !selectedIds.length}
+                        draggable={!isInteractionBlocked}
                     >
                         <Layer>
                             {bgImage && <KonvaImage image={bgImage} width={background.width} height={background.height} listening={false} />}
                         </Layer>
                         <Layer>
-                            {tempLinePoints.length > 0 && drawingState && (
-                                <Line points={tempLinePoints} stroke={drawingState.item.initialProps?.stroke || '#ff0000'} strokeWidth={drawingState.item.initialProps?.strokeWidth || 5} dash={drawingState.item.initialProps?.dash} tension={isLineTool(drawingState.type) && drawingState.type === 'pen' ? 0.5 : 0} lineCap="round" listening={false}/>
-                            )}
                             {objects.map((obj) => (
-                                <DraggableObject key={obj.id} obj={obj} isSelected={selectedIds.includes(obj.id)} onSelect={handleObjectClick} onChange={(attrs, imm) => updateObject(obj.id, attrs, imm)} onTextDblClick={() => isRectTool(obj.type) && obj.type === 'text' && handleTextDblClick(obj)}/>
+                                <DraggableObject 
+                                    key={obj.id} 
+                                    obj={obj} 
+                                    isSelected={selectedIds.includes(obj.id)} 
+                                    onSelect={handleObjectClick} 
+                                    onChange={(attrs, imm) => updateObject(obj.id, attrs, imm)} 
+                                    onTextDblClick={() => isText(obj) && handleTextDblClick(obj)}
+                                />
                             ))}
                             <Transformer 
-                                ref={trRef} 
                                 boundBoxFunc={(oldBox, newBox) => newBox.width < 5 || newBox.height < 5 ? oldBox : newBox} 
                                 anchorStroke="#007bff" 
                                 anchorFill="#fff" 
                                 anchorSize={10} 
                                 borderStroke="#007bff" 
                                 borderDash={[6, 2]} 
-                                rotateEnabled={!selectedIds.some(id => { const obj = objects.find(o => o.id === id); return obj && isLineTool(obj.type);})}
-                                onTransformEnd={handleTransformEnd} />
+                            />
                             <Rect ref={selectionRectRef} {...selectionBox} fill="rgba(0, 123, 255, 0.2)" stroke="rgba(0, 123, 255, 0.6)" strokeWidth={1} listening={false} />
                         </Layer>
                     </Stage>
@@ -286,6 +233,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
             )}
         </div>
     );
-};
+});
 
 export default CanvasPanel;

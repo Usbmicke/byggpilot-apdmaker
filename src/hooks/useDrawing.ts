@@ -4,7 +4,7 @@ import { useDrop } from 'react-dnd';
 import { NativeTypes } from 'react-dnd-html5-backend';
 import Konva from 'konva';
 
-import { APDObject, LibraryItem, DrawingTool, isLineTool } from '../types';
+import { APDObject, LibraryItem, DrawingTool, isLineTool, isRectTool, isText } from '../types';
 import { ItemTypes } from '../components/library/LibraryPanel';
 
 const getRelativePointerPosition = (stage: Konva.Stage) => {
@@ -16,21 +16,19 @@ const getRelativePointerPosition = (stage: Konva.Stage) => {
 
 interface UseDrawingProps {
     stageRef: React.RefObject<Konva.Stage>;
+    selectedTool: LibraryItem | null;
     addObject: (item: LibraryItem, position: { x: number; y: number }, extraProps?: Partial<APDObject>) => APDObject;
-    handleFile: (file: File) => void;
-    setTextToEditOnLoad: (id: string | null) => void;
+    setSelectedTool: (tool: LibraryItem | null) => void;
+    onTextCreate: (obj: APDObject) => void;
 }
 
 export const useDrawing = ({
     stageRef,
+    selectedTool,
     addObject,
-    handleFile,
-    setTextToEditOnLoad,
+    setSelectedTool,
+    onTextCreate,
 }: UseDrawingProps) => {
-    const [drawingState, setDrawingState] = useState<{ type: DrawingTool; points: number[]; item: LibraryItem; } | null>(null);
-    const [tempLinePoints, setTempLinePoints] = useState<number[]>([]);
-
-    const isInteractionBlocked = !!drawingState;
 
     const [{ isOver, canDrop, draggedItemType }, drop] = useDrop(() => ({
         accept: [ItemTypes.LIBRARY_ITEM, NativeTypes.FILE],
@@ -39,9 +37,9 @@ export const useDrawing = ({
             const type = monitor.getItemType();
 
             if (type === NativeTypes.FILE) {
-                if (item.files?.length) handleFile(item.files[0]);
+                // handleFile is handled by the parent
             } else if (type === ItemTypes.LIBRARY_ITEM) {
-                if (isLineTool(item.type)) return;
+                if (isLineTool(item.type) || isRectTool(item.type)) return;
                 
                 const offset = monitor.getClientOffset(); if (!offset) return;
                 const stageRect = stage.container().getBoundingClientRect();
@@ -50,56 +48,32 @@ export const useDrawing = ({
                     y: (offset.y - stageRect.top - stage.y()) / stage.scaleY(),
                 };
                 
-                const newObject = addObject(item, relativePos);
-                if (newObject.type === 'text') {
-                    setTextToEditOnLoad(newObject.id);
-                }
+                addObject(item, relativePos);
             }
         },
         collect: (monitor) => ({ isOver: monitor.isOver(), canDrop: monitor.canDrop(), draggedItemType: monitor.getItemType() }),
-    }), [stageRef, handleFile, addObject, setTextToEditOnLoad]);
-
-    const startDrawing = useCallback((item: LibraryItem) => {
-        if (isLineTool(item.type)) {
-            setDrawingState({ type: item.type, points: [], item: item });
-        }
-    }, []);
+    }), [stageRef, addObject]);
 
     const handleStageClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
         const stage = stageRef.current;
         if (e.target !== stage || !stage) return;
         
-        if (!drawingState) return;
+        if (!selectedTool) return;
 
         const pos = getRelativePointerPosition(stage);
-        setDrawingState(prev => prev ? { ...prev, points: [...prev.points, pos.x, pos.y] } : null);
-    };
 
-    const handleMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
-        if (!drawingState || drawingState.points.length === 0) return;
-        const stage = stageRef.current; if (!stage) return;
-        const pos = getRelativePointerPosition(stage);
-        setTempLinePoints([...drawingState.points, pos.x, pos.y]);
+        if (isText(selectedTool)) {
+            const newObject = addObject(selectedTool, pos);
+            onTextCreate(newObject);
+            setSelectedTool(null);
+        } 
     };
-
-    const handleContextMenu = (e: Konva.KonvaEventObject<PointerEvent>) => {
-        if (!drawingState) return;
-        e.evt.preventDefault();
-        if (drawingState.points.length > 2) {
-            addObject(drawingState.item, { x: 0, y: 0 }, { points: [...drawingState.points] });
-        }
-        setDrawingState(null);
-        setTempLinePoints([]);
-    };
-
-    const cancelDrawing = useCallback(() => {
-        setDrawingState(null);
-        setTempLinePoints([]);
-    }, []);
 
     return {
-        drop, isOver, canDrop, draggedItemType, tempLinePoints, drawingState, isInteractionBlocked,
-        startDrawing, cancelDrawing, 
-        handleStageClick, handleMouseMove, handleContextMenu,
+        drop,
+        isOver,
+        canDrop,
+        draggedItemType,
+        handleStageClick
     };
 };

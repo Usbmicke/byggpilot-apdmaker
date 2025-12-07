@@ -2,18 +2,15 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import toast, { Toaster } from 'react-hot-toast';
-
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-
-import { APDObject, LibraryItem, ProjectInfo, CustomLegendItem, isRectTool } from './types';
+import { APDObject, LibraryItem, ProjectInfo, CustomLegendItem, isCrane, isText } from './types';
 import { defaultProjectInfo, defaultCustomLegend } from './utils/defaults';
 import { useHistory } from './hooks/useHistory';
-
 import Header from './components/header/Header';
 import Library from './components/library/LibraryPanel';
 import Legend from './components/legend/LegendPanel';
-import CanvasPanel from './components/canvas/CanvasPanel';
+import CanvasPanel, { CanvasPanelRef } from './components/canvas/CanvasPanel';
 import ThreeDView from './components/3d/ThreeDView';
 import { LIBRARY_CATEGORIES } from './constants/libraryItems';
 import { loadAPD } from './utils/apdFileHandler';
@@ -21,7 +18,7 @@ import { handlePDF } from './utils/pdfHandler';
 
 const App: React.FC = () => {
     const stageRef = useRef<any>(null);
-    const mainContainerRef = useRef<HTMLDivElement>(null);
+    const canvasPanelRef = useRef<CanvasPanelRef>(null);
 
     const { state: objects, setState: setObjects, undo, redo, canUndo, canRedo, resetHistory } = useHistory<APDObject[]>([]);
     
@@ -66,15 +63,21 @@ const App: React.FC = () => {
             ...extraProps,
         };
 
-        if (isRectTool(newObject.type) && newObject.type === 'text') {
+        if (isCrane(newObject)) {
+            newObject.radius = newObject.radius || 100; // Default radius
+            newObject.width = newObject.width || 50; // Default icon width
+            newObject.height = newObject.height || 50; // Default icon height
+        }
+
+        if (isText(newObject)) {
             newObject = {
                 ...newObject,
-                text: newObject.text || 'Text',
-                fill: newObject.fill || '#000000',
-                fontSize: newObject.fontSize || 24,
-                padding: newObject.padding || 5,
-                width: newObject.width || 100,
-                height: newObject.height || 30,
+                text: 'Text',
+                fill: '#000000',
+                fontSize: 24,
+                padding: 5,
+                width: 100,
+                height: 30,
                 align: 'center',
             };
         }
@@ -87,6 +90,12 @@ const App: React.FC = () => {
         const newObjects = objects.map(obj => (obj.id === id ? { ...obj, ...attrs } : obj));
         setObjects(newObjects, immediate);
     }, [objects, setObjects]);
+
+    const handleTextCreate = (obj: APDObject) => {
+        if (canvasPanelRef.current) {
+            canvasPanelRef.current.startTextEdit(obj);
+        }
+    };
 
     const handleUpdateGroupQuantity = (itemId: string, newQuantity: number) => {
         const groupObjects = objects.filter(obj => obj.item.id === itemId);
@@ -195,11 +204,10 @@ const App: React.FC = () => {
 
     return (
         <DndProvider backend={HTML5Backend}>
-            <div className="flex flex-col h-screen bg-slate-900 text-white font-sans overflow-hidden" ref={mainContainerRef}>
+            <div className="flex flex-col h-screen bg-slate-900 text-white font-sans overflow-hidden">
                 <Toaster position="bottom-center" toastOptions={{ className: 'bg-slate-700 text-white', duration: 4000 }} />
                 <Header 
                     stageRef={stageRef}
-                    mainContainerRef={mainContainerRef}
                     background={background}
                     handleFile={handleFile}
                     objects={objects}
@@ -215,6 +223,7 @@ const App: React.FC = () => {
                 <div className="flex flex-1 overflow-hidden">
                     <Library 
                         isOpen={isLibraryOpen} 
+                        selectedTool={selectedTool} 
                         onSelectTool={setSelectedTool}
                     />
                     <div className="flex-1 flex flex-col relative">
@@ -228,6 +237,7 @@ const App: React.FC = () => {
                                     onSnapshotRequest={() => setObjects(objects, true)}
                                 />
                                : <CanvasPanel 
+                                    ref={canvasPanelRef}
                                     stageRef={stageRef}
                                     objects={objects}
                                     background={background}
@@ -244,6 +254,7 @@ const App: React.FC = () => {
                                     canRedo={canRedo}
                                     selectedTool={selectedTool}
                                     setSelectedTool={setSelectedTool}
+                                    onTextCreate={handleTextCreate}
                                 />}
                     </div>
                     {background && <Legend 

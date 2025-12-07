@@ -1,8 +1,8 @@
 
 import React, { useRef, useEffect } from 'react';
-import { Image as KonvaImage, Transformer, Text, Line, Rect, Group } from 'react-konva';
+import { Image as KonvaImage, Transformer, Text, Line, Rect, Group, Circle } from 'react-konva';
 import useImage from 'use-image';
-import { APDObject, isSymbol, isRectTool, isLineTool } from '../../types/index';
+import { APDObject, isSymbol, isRectTool, isLineTool, isCrane } from '../../types/index';
 
 interface DraggableObjectProps {
     obj: APDObject;
@@ -15,7 +15,9 @@ interface DraggableObjectProps {
 const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSelect, onChange, onTextDblClick }) => {
     const shapeRef = useRef<any>();
     const trRef = useRef<any>();
-    const [image] = useImage(isSymbol(obj.type) ? obj.item.iconUrl : '', 'anonymous');
+    
+    const imageUrl = isSymbol(obj.type) || isCrane(obj) ? obj.item.iconUrl : '';
+    const [image] = useImage(imageUrl, 'anonymous');
 
     useEffect(() => {
         if (isSelected && trRef.current) {
@@ -31,35 +33,76 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSe
     const handleTransformEnd = () => {
         const node = shapeRef.current;
         if (!node) return;
+
         const scaleX = node.scaleX();
-        const scaleY = node.scaleY();
+        const newWidth = Math.max(5, node.width() * scaleX);
+        const newHeight = Math.max(5, node.height() * scaleX);
+
         node.scaleX(1);
         node.scaleY(1);
-        onChange({
+
+        let attrs: Partial<APDObject> = {
             x: node.x(),
             y: node.y(),
             rotation: node.rotation(),
-            width: Math.max(5, node.width() * scaleX),
-            height: Math.max(5, node.height() * scaleY),
-        }, true);
+        };
+
+        if (isCrane(obj)) {
+            attrs.radius = (newWidth / 2);
+            attrs.width = newWidth;
+            attrs.height = newHeight;
+        } else {
+            attrs.width = newWidth;
+            attrs.height = newHeight;
+        }
+
+        onChange(attrs, true);
     };
 
     const renderObject = () => {
         const commonProps = {
             id: obj.id,
-            name: obj.id, // Used for finding node
+            name: obj.id,
             x: obj.x,
             y: obj.y,
             rotation: obj.rotation,
-            scaleX: obj.scaleX,
-            scaleY: obj.scaleY,
-            draggable: !isSelected, // Disable drag when selected to use transformer
-            visible: obj.visible ?? true, // Respect the visible prop, default to true
+            draggable: true,
             onClick: onSelect,
             onTap: onSelect,
             onDragEnd: handleDragEnd,
             onTransformEnd: handleTransformEnd,
         };
+
+        if (isCrane(obj)) {
+            const radius = obj.radius || 100;
+            const iconSize = obj.width || 50;
+
+            return (
+                <Group
+                    {...commonProps}
+                    ref={shapeRef}
+                    width={radius * 2}
+                    height={radius * 2}
+                    offsetX={radius}
+                    offsetY={radius}
+                >
+                    <Circle
+                        radius={radius}
+                        fill="rgba(255, 215, 0, 0.3)"
+                        stroke="#FFD700"
+                        strokeWidth={2}
+                    />
+                    <KonvaImage
+                        image={image}
+                        width={iconSize}
+                        height={iconSize}
+                        offsetX={iconSize / 2 - radius}
+                        offsetY={iconSize / 2 - radius}
+                        listening={false} // The icon itself should not block interaction
+                    />
+                </Group>
+            );
+        }
 
         if (isSymbol(obj.type)) {
             return <KonvaImage {...commonProps} ref={shapeRef} image={image} width={obj.width} height={obj.height} onDblClick={onTextDblClick} onDblTap={onTextDblClick} />;
@@ -82,7 +125,7 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSe
                             fill="rgba(255, 255, 255, 0.9)"
                             stroke="#000"
                             strokeWidth={0.5}
-                            listening={false} // Events should be handled by the Group
+                            listening={false}
                         />
                         <Text
                             text={obj.text}
@@ -94,7 +137,7 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSe
                             padding={obj.padding}
                             align={obj.align}
                             verticalAlign="middle"
-                            listening={false} // Events should be handled by the Group
+                            listening={false}
                         />
                     </Group>
                 );
@@ -117,7 +160,7 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSe
             return (
                 <Line
                     {...commonProps}
-                    onTransformEnd={undefined} // Lines are not transformable in this way
+                    onTransformEnd={undefined}
                     ref={shapeRef}
                     points={obj.points}
                     stroke={obj.stroke || '#000000'} 
@@ -136,6 +179,17 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSe
     return (
         <>
             {renderObject()}
+            {isSelected && (
+                <Transformer
+                    ref={trRef}
+                    boundBoxFunc={(oldBox, newBox) => {
+                        if (newBox.width < 5 || newBox.height < 5) {
+                            return oldBox;
+                        }
+                        return newBox;
+                    }}
+                />
+            )}
         </>
     );
 };

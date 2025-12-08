@@ -1,8 +1,9 @@
 
 import React, { useRef, useEffect } from 'react';
-import { Image as KonvaImage, Transformer, Text, Line, Rect, Group, Circle } from 'react-konva';
+import { Image as KonvaImage, Transformer, Text, Line, Rect, Group } from 'react-konva';
 import useImage from 'use-image';
 import { APDObject, isSymbol, isRectTool, isLineTool, isCrane } from '../../types/index';
+import CraneObject from '../canvas/CraneObject'; // Importerad krankomponent
 
 interface DraggableObjectProps {
     obj: APDObject;
@@ -17,7 +18,7 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSe
     const shapeRef = useRef<any>();
     const trRef = useRef<any>();
 
-    const imageUrl = (isSymbol(obj.type) || isCrane(obj)) ? (obj.item.iconUrl || '') : '';
+    const imageUrl = (isSymbol(obj.type) && !isCrane(obj)) ? (obj.item.iconUrl || '') : '';
     const [image] = useImage(imageUrl, 'anonymous');
 
     useEffect(() => {
@@ -36,8 +37,7 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSe
         if (!node) return;
 
         const scaleX = node.scaleX();
-        const newWidth = Math.max(5, node.width() * scaleX);
-        const newHeight = Math.max(5, node.height() * scaleX);
+        const scaleY = node.scaleY();
 
         node.scaleX(1);
         node.scaleY(1);
@@ -49,16 +49,19 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSe
         };
 
         if (isCrane(obj)) {
-            attrs.radius = (newWidth / 2);
-            attrs.width = newWidth;
-            attrs.height = newHeight;
+            // For the crane, scaling should only affect the arm length.
+            // The original arm length is obj.width.
+            const newArmLength = Math.max(20, (obj.width || 100) * scaleX);
+            attrs.width = newArmLength;
+            attrs.radius = newArmLength * 0.8; // Update radius based on new arm length
         } else {
-            attrs.width = newWidth;
-            attrs.height = newHeight;
+            attrs.width = Math.max(5, node.width() * scaleX);
+            attrs.height = Math.max(5, node.height() * scaleY);
         }
 
         onChange(attrs, true);
     };
+
 
     const renderObject = () => {
         const commonProps = {
@@ -67,8 +70,8 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSe
             x: obj.x,
             y: obj.y,
             rotation: obj.rotation,
-            draggable: !isDrawing, // Disable dragging when drawing
-            listening: !isDrawing, // Disable events when drawing so clicks pass through to stage
+            draggable: !isDrawing,
+            listening: !isDrawing,
             onClick: onSelect,
             onTap: onSelect,
             onDragEnd: handleDragEnd,
@@ -76,8 +79,7 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSe
         };
 
         if (isCrane(obj)) {
-            // Use standard image rendering but maintain ID/rotation
-            return <KonvaImage {...commonProps} ref={shapeRef} image={image} width={obj.width} height={obj.height} />;
+            return <CraneObject {...commonProps} ref={shapeRef} obj={obj} />;
         }
 
         if (isSymbol(obj.type)) {
@@ -159,11 +161,14 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSe
                 <Transformer
                     ref={trRef}
                     boundBoxFunc={(oldBox, newBox) => {
-                        if (newBox.width < 5 || newBox.height < 5) {
+                        if (newBox.width < 10) {
                             return oldBox;
                         }
                         return newBox;
                     }}
+                    // For crane: intuitive resize anchors for arm length, plus full rotation
+                    enabledAnchors={isCrane(obj) ? ['middle-left', 'middle-right'] : undefined}
+                    rotateAnchorOffset={isCrane(obj) ? 30 : undefined}
                 />
             )}
         </>

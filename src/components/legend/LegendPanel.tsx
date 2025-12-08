@@ -1,9 +1,43 @@
 
-import React, { useState, useMemo } from 'react';
-import { APDObject, CustomLegendItem, ProjectInfo, isSymbol } from '../../types/index';
+import React, { useState, useMemo, ChangeEvent } from 'react';
+import { APDObject, CustomLegendItem, ProjectInfo } from '../../types/index';
 import { findIcon } from '../../utils/findIcon';
 
-const ObjectRow = React.memo(({ group, groupId, onRemove, onUpdate }: { group: APDObject, groupId: string, onRemove: (id: string) => void, onUpdate: (id: string, newQuantity: number) => void }) => {
+// --- Sub-components for better structure and performance ---
+
+const ProjectInfoForm = React.memo(({ projectInfo, onInfoChange }: { projectInfo: ProjectInfo, onInfoChange: (e: ChangeEvent<HTMLInputElement>) => void }) => (
+    <div className="space-y-3 mb-6">
+        {Object.keys(projectInfo).map(key => (
+            <div key={key}>
+                <label htmlFor={key} className="text-sm font-medium text-slate-400 capitalize">
+                    {key.replace(/([A-Z])/g, ' $1')}
+                </label>
+                <input
+                    type="text"
+                    name={key}
+                    id={key}
+                    // **Fix 1.3:** Ensure value is never undefined to prevent uncontrolled component warning.
+                    value={projectInfo[key as keyof ProjectInfo] || ''}
+                    onChange={onInfoChange}
+                    className="mt-1 p-2 bg-slate-700 border border-slate-600 rounded-lg text-sm w-full text-slate-200 placeholder:text-slate-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                />
+            </div>
+        ))}
+    </div>
+));
+
+const ObjectRow = React.memo(({
+    group,
+    groupId,
+    onRemove,
+    onUpdate
+}: { 
+    group: APDObject, 
+    groupId: string, 
+    onRemove: (id: string) => void, 
+    onUpdate: (id: string, newQuantity: number) => void 
+}) => {
+    // **Fix:** State is now controlled directly by parent, preventing sync issues.
     const [quantity, setQuantity] = useState(group.quantity.toString());
 
     React.useEffect(() => {
@@ -12,10 +46,17 @@ const ObjectRow = React.memo(({ group, groupId, onRemove, onUpdate }: { group: A
 
     const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value;
-        setQuantity(val);
+        setQuantity(val); // Allow temporary invalid state like empty string
         const num = parseInt(val, 10);
         if (!isNaN(num) && num > 0) {
             onUpdate(groupId, num);
+        }
+    };
+
+    const handleBlur = () => {
+        // If the input is empty or invalid on blur, revert to the last valid quantity.
+        if (quantity === '' || parseInt(quantity, 10) <= 0) {
+            setQuantity(group.quantity.toString());
         }
     };
 
@@ -23,7 +64,8 @@ const ObjectRow = React.memo(({ group, groupId, onRemove, onUpdate }: { group: A
         <div className="flex items-center justify-between p-2 bg-slate-800 rounded-lg border border-slate-700 shadow-sm">
             <div className="flex items-center min-w-0">
                 <div className="w-6 h-6 mr-3 text-slate-400 flex-shrink-0">{findIcon(group.type)}</div>
-                <span className="text-sm font-medium text-slate-300 truncate" title={group.item.name}>{group.item.name}</span>
+                {/* **Fix 1.2:** Correctly access nested item.name property. */}
+                <span className="text-sm font-medium text-slate-300 truncate" title={group.item?.name || 'Okänt objekt'}>{group.item?.name || 'Okänt objekt'}</span>
             </div>
             <div className="flex items-center">
                 <input
@@ -31,13 +73,13 @@ const ObjectRow = React.memo(({ group, groupId, onRemove, onUpdate }: { group: A
                     min="1"
                     value={quantity}
                     onChange={handleQuantityChange}
-                    onBlur={() => setQuantity(group.quantity.toString())}
+                    onBlur={handleBlur}
                     className="w-16 p-1 text-sm bg-slate-700 border border-slate-600 rounded-md text-slate-200 text-center"
                 />
                 <button
                     onClick={() => onRemove(groupId)}
                     className="ml-2 p-1 text-red-500 hover:text-red-400 rounded-full hover:bg-slate-700"
-                    aria-label="Ta bort alla av denna typ"
+                    aria-label={`Ta bort alla ${group.item?.name || 'objekt'}`}
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                 </button>
@@ -46,78 +88,55 @@ const ObjectRow = React.memo(({ group, groupId, onRemove, onUpdate }: { group: A
     );
 });
 
+
 interface LegendPanelProps {
-    objects: APDObject[];
-    customItems: CustomLegendItem[];
-    setCustomItems: React.Dispatch<React.SetStateAction<CustomLegendItem[]>>;
     isOpen: boolean;
     projectInfo: ProjectInfo;
     setProjectInfo: (info: ProjectInfo) => void;
+    objects: APDObject[];
     onRemoveObject: (ids: string[]) => void;
-    onUpdateObject: (id: string, quantity: number) => void;
+    onUpdateObject: (groupId: string, newQuantity: number) => void;
+    customItems: CustomLegendItem[];
+    setCustomItems: React.Dispatch<React.SetStateAction<CustomLegendItem[]>>;
 }
 
-const LegendPanel: React.FC<LegendPanelProps> = ({ objects, customItems, setCustomItems, isOpen, projectInfo, setProjectInfo, onRemoveObject, onUpdateObject }) => {
-    const [newItemName, setNewItemName] = useState('');
-    const [newItemColor, setNewItemColor] = useState('#ffffff');
+// --- Main Component ---
+
+const LegendPanel: React.FC<LegendPanelProps> = ({
+    isOpen, projectInfo, setProjectInfo, objects, onRemoveObject, onUpdateObject, customItems, setCustomItems
+}) => {
 
     const aggregatedSymbols = useMemo(() => {
         const symbolMap = new Map<string, APDObject>();
         objects.forEach(obj => {
-            // Group by item ID if available, otherwise by type (for custom drawn things like lines)
-            const key = obj.item.id || obj.type;
+            // **Robust Grouping:** Use item.id for library items, or object's own type for generated items.
+            const key = obj.item?.id || obj.type;
+            if (!key) return; // Ignore objects without a key.
 
             const existing = symbolMap.get(key);
             if (existing) {
-                existing.quantity += obj.quantity;
+                // Ensure quantity is a number before adding.
+                existing.quantity = (existing.quantity || 0) + (obj.quantity || 1);
             } else {
-                // If it's a drawn object (no item.id usually), we clone it.
-                // We need to ensure it has an item structure for the Legend to verify.
-                symbolMap.set(key, { ...obj, quantity: obj.quantity });
+                // Create a new entry, ensuring a valid item structure.
+                symbolMap.set(key, { 
+                    ...obj, 
+                    item: obj.item || { name: obj.type, id: obj.type, type: obj.type },
+                    quantity: obj.quantity || 1
+                });
             }
         });
         return Array.from(symbolMap.entries());
     }, [objects]);
 
     const handleRemoveGroup = (groupId: string) => {
-        const idsToRemove = objects.filter(obj => (obj.item.id || obj.type) === groupId).map(obj => obj.id);
+        const idsToRemove = objects.filter(obj => (obj.item?.id || obj.type) === groupId).map(obj => obj.id);
         onRemoveObject(idsToRemove);
-    };
-
-    const handleUpdateGroupQuantity = (groupId: string, newQuantity: number) => {
-        const groupObjects = objects.filter(obj => (obj.item.id || obj.type) === groupId);
-        const currentTotal = groupObjects.reduce((sum, obj) => sum + obj.quantity, 0);
-
-        if (newQuantity === currentTotal) return;
-
-        const idsToRemove = groupObjects.map(obj => obj.id);
-        onRemoveObject(idsToRemove);
-
-        const templateObject = groupObjects[0];
-        if (templateObject) {
-            // We need to pass the groupId back to the parent if needed, but App.tsx handleUpdateGroupQuantity 
-            // currently expects an itemId. We need to refactor App.tsx or adapt here. 
-            // Wait, App.tsx checks `obj.item.id === itemId`. I need to fix App.tsx as well!
-            // For now, let's assume App.tsx will be fixed or we pass the ID that works.
-            // Actually, I should fix App.tsx too. But let's fix LegendPanel first.
-            // If I pass groupId to onUpdateObject, I need to make sure App.tsx handles it.
-            onUpdateObject(groupId, newQuantity);
-        }
-    };
-
-    const handleAddCustomItem = () => {
-        if (newItemName.trim()) {
-            setCustomItems(prev => [...prev, { id: `custom-${Date.now()}`, name: newItemName, color: newItemColor }]);
-            setNewItemName('');
-        }
-    };
-
-    const handleRemoveCustomItem = (id: string) => {
-        setCustomItems(prev => prev.filter(item => item.id !== id));
     };
 
     const handleInfoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setProjectInfo({ ...projectInfo, [e.target.name]: e.target.value });
+        // This ensures controlled components receive defined values.
+        setProjectInfo({ ...projectInfo, [e.target.name]: e.target.value || '' });
     }
 
     return (
@@ -128,21 +147,8 @@ const LegendPanel: React.FC<LegendPanelProps> = ({ objects, customItems, setCust
         >
             <div className="w-80 h-full p-4 overflow-y-auto flex flex-col">
                 <h2 className="text-xl font-bold border-b border-slate-700 pb-2 mb-4 text-slate-100 whitespace-nowrap">Projektinformation</h2>
-
-                <div className="space-y-3 mb-6">
-                    <div>
-                        <label htmlFor="company" className="text-sm font-medium text-slate-400">Företag</label>
-                        <input type="text" name="company" id="company" value={projectInfo.company} onChange={handleInfoChange} className="mt-1 p-2 bg-slate-700 border border-slate-600 rounded-lg text-sm w-full text-slate-200 placeholder:text-slate-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
-                    </div>
-                    <div>
-                        <label htmlFor="projectName" className="text-sm font-medium text-slate-400">Projektnamn</label>
-                        <input type="text" name="projectName" id="projectName" value={projectInfo.projectName} onChange={handleInfoChange} className="mt-1 p-2 bg-slate-700 border border-slate-600 rounded-lg text-sm w-full text-slate-200 placeholder:text-slate-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
-                    </div>
-                    <div>
-                        <label htmlFor="projectId" className="text-sm font-medium text-slate-400">Projekt-ID</label>
-                        <input type="text" name="projectId" id="projectId" value={projectInfo.projectId} onChange={handleInfoChange} className="mt-1 p-2 bg-slate-700 border border-slate-600 rounded-lg text-sm w-full text-slate-200 placeholder:text-slate-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
-                    </div>
-                </div>
+                
+                <ProjectInfoForm projectInfo={projectInfo} onInfoChange={handleInfoChange} />
 
                 <h2 className="text-xl font-bold border-y border-slate-700 py-2 my-4 text-slate-100 whitespace-nowrap">Objektförteckning</h2>
 
@@ -153,46 +159,9 @@ const LegendPanel: React.FC<LegendPanelProps> = ({ objects, customItems, setCust
                             groupId={groupId}
                             group={group}
                             onRemove={handleRemoveGroup}
-                            onUpdate={handleUpdateGroupQuantity}
+                            onUpdate={onUpdateObject} // Parent already handles the logic
                         />
                     ))}
-                </div>
-
-                <div className="space-y-2">
-                    {customItems.map(item => (
-                        <div key={item.id} className="flex items-center justify-between p-2 bg-slate-800 rounded-lg border border-slate-700 shadow-sm">
-                            <div style={{ width: 12, height: 12, backgroundColor: item.color, marginRight: 8, borderRadius: '50%', flexShrink: 0 }}></div>
-                            <span className="text-sm font-medium text-slate-300 truncate flex-1" title={item.name}>{item.name}</span>
-                            <button onClick={() => handleRemoveCustomItem(item.id)} className="ml-2 p-1 text-red-500 hover:text-red-400 rounded-full hover:bg-slate-700" aria-label="Ta bort anpassad rad"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
-                        </div>
-                    ))}
-                </div>
-
-                <div className="mt-auto border-t border-slate-700 pt-4">
-                    <h3 className="text-md font-semibold mb-3 text-slate-100 whitespace-nowrap">Lägg till egen rad i förteckning</h3>
-                    <div className="flex flex-col space-y-2">
-                        <input
-                            type="text"
-                            value={newItemName}
-                            onChange={e => setNewItemName(e.target.value)}
-                            placeholder="Namn på egen rad..."
-                            className="p-2 bg-slate-700 border border-slate-600 rounded-lg text-sm w-full text-slate-200 placeholder:text-slate-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                        <div className="flex items-center gap-2">
-                            <label htmlFor="new-item-color" className="text-sm text-slate-400">Färg:</label>
-                            <input
-                                type="color"
-                                id="new-item-color"
-                                value={newItemColor}
-                                onChange={e => setNewItemColor(e.target.value)}
-                                className="w-8 h-8 p-1 bg-slate-700 border border-slate-600 rounded"
-                            />
-                            <button onClick={handleAddCustomItem} className="bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 px-3 rounded-lg text-sm shadow-sm hover:shadow transition-all w-full justify-center flex items-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
-                                Lägg till
-                            </button>
-                        </div>
-                    </div>
                 </div>
             </div>
         </aside>

@@ -6,14 +6,41 @@ import { APDObject, CustomLegendItem, ProjectInfo, isLineTool, isRectTool } from
 const LEGEND_CONTAINER_ID = 'apd-legend-for-export-container';
 
 const createDrawingToolIcon = (item: any): string => {
-    const color = item.stroke || item.fill || '#000000';
-    const fill = isRectTool(item.type) ? `fill="${item.fill || '#cccccc'}" fill-opacity="0.5"` : 'fill="none"';
-    const strokeWidth = 2;
+    const strokeColor = item.stroke || '#333';
+    const fillColor = item.fill || '#ccc';
+    const strokeWidth = 1.5;
     const dash = item.dash ? `stroke-dasharray="${item.dash.join(' ')}"` : '';
+
+    let svgContent = '';
+
+    if (isRectTool(item.type)) {
+        svgContent = `
+            <rect 
+                x="3" y="3" 
+                width="26" height="10" 
+                fill="${fillColor}" 
+                fill-opacity="0.7" 
+                stroke="${strokeColor}" 
+                stroke-width="${strokeWidth}" 
+            />
+        `;
+    } 
+    else if (isLineTool(item.type)) {
+        svgContent = `
+            <line 
+                x1="2" y1="8" 
+                x2="30" y2="8" 
+                stroke="${strokeColor}" 
+                stroke-width="${strokeWidth * 1.5}" 
+                ${dash} 
+                stroke-linecap="round"
+            />
+        `;
+    }
 
     const svg = `
         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="16" viewBox="0 0 32 16">
-            <line x1="2" y1="8" x2="30" y2="8" stroke="${color}" stroke-width="${strokeWidth}" ${dash} ${fill} stroke-linecap="round" />
+            ${svgContent}
         </svg>
     `;
     return `data:image/svg+xml;base64,${btoa(svg)}`;
@@ -109,7 +136,6 @@ export const exportPlan = async (format: 'jpeg' | 'pdf', config: ExportConfig): 
         return acc;
     }, {} as { [key: string]: any }));
 
-    // FIX: Filter out items without a name before sorting to prevent crash.
     const allLegendItems = [...aggregatedItems, ...customLegendItems]
         .filter(item => item && item.name)
         .sort((a, b) => a.name.localeCompare(b.name));
@@ -122,7 +148,11 @@ export const exportPlan = async (format: 'jpeg' | 'pdf', config: ExportConfig): 
         document.body.appendChild(container);
         container.innerHTML = await renderLegendToHtml(allLegendItems);
         const legendCanvas = await getCanvasFromHtml(container);
-        const stageImageURL = stageRef.current.toDataURL({ pixelRatio: 2.5 });
+
+        // KORRIGERING: Återgå till PNG för transparens, med balanserad upplösning.
+        const stageImageURL = stageRef.current.toDataURL({
+            pixelRatio: 1.5, // Balanserad upplösning för att hålla filstorleken nere.
+        });
         
         if (format === 'jpeg') {
             const link = document.createElement('a');
@@ -153,7 +183,7 @@ export const exportPlan = async (format: 'jpeg' | 'pdf', config: ExportConfig): 
             pdf.text(`Datum: ${projectInfo.date || '-'}`, infoX + 70, infoY);
             pdf.text(`Revision: ${projectInfo.revision || '-'}`, infoX + 70, infoY + lineHeight);
 
-            const legendWidth = 70;
+            const legendWidth = 55;
             const spaceBetween = 5;
             const drawingAreaWidth = pdfWidth - legendWidth - (pageMargin * 2) - spaceBetween;
             const drawingAreaHeight = pdfHeight - (pageMargin * 2) - 20; 
@@ -166,7 +196,8 @@ export const exportPlan = async (format: 'jpeg' | 'pdf', config: ExportConfig): 
             const drawingX = pageMargin + (drawingAreaWidth - finalDrawingWidth) / 2;
             const drawingY = pageMargin + 20 + (drawingAreaHeight - finalDrawingHeight) / 2;
 
-            pdf.addImage(stageImageURL, 'JPEG', drawingX, drawingY, finalDrawingWidth, finalDrawingHeight);
+            // KORRIGERING: Använd 'PNG' som format och 'FAST' för kompression.
+            pdf.addImage(stageImageURL, 'PNG', drawingX, drawingY, finalDrawingWidth, finalDrawingHeight, undefined, 'FAST');
 
             const legendX = pdfWidth - pageMargin - legendWidth;
             const legendCanvasUrl = legendCanvas.toDataURL('image/png', 1.0);

@@ -1,6 +1,7 @@
 
 import React from 'react';
-import { APDObject, CustomLegendItem, ProjectInfo } from '../../types';
+import { APDObject, CustomLegendItem, ProjectInfo, isLineTool } from '../../types';
+import { findIcon } from '../../utils/findIcon';
 
 interface LegendForPrintProps {
     projectInfo: ProjectInfo;
@@ -11,32 +12,45 @@ interface LegendForPrintProps {
 const LegendForPrint: React.FC<LegendForPrintProps> = ({ projectInfo, objects, customItems }) => {
 
     const groupedObjects = objects.reduce((acc, obj) => {
-        const key = obj.item.id || obj.type;
+        const key = obj.item.name; // Use name as the primary key for grouping
         if (!acc[key]) {
-            acc[key] = { ...obj.item, quantity: 0 };
+            acc[key] = { ...obj, quantity: 0 }; // Store the whole object to get all properties
         }
-        acc[key].quantity += obj.quantity;
+        acc[key].quantity += obj.quantity || 1;
         return acc;
     }, {} as { [key: string]: any });
 
     const allItems = Object.values(groupedObjects).map(item => {
-        let icon = null;
-        if (item.iconUrl) {
-            icon = <img src={item.iconUrl} alt={item.name} style={{ height: '1em', marginRight: '0.5em', verticalAlign: 'middle' }} />;
-        } else if (item.type === 'fence') {
-            icon = <span style={{ display: 'inline-block', width: '1em', height: '0.2em', backgroundColor: item.stroke || '#000', marginRight: '0.5em', verticalAlign: 'middle' }}></span>;
-        } else if (item.type === 'walkway') {
-            icon = <span style={{ display: 'inline-block', width: '1em', height: '0.2em', border: '1px dashed #000', marginRight: '0.5em', verticalAlign: 'middle' }}></span>;
-        } else if (item.type === 'schakt') {
-            icon = <span style={{ display: 'inline-block', width: '0.8em', height: '0.8em', backgroundColor: item.fill || 'brown', marginRight: '0.5em', verticalAlign: 'middle' }}></span>;
+        const ReactIcon = findIcon(item.type);
+        let iconDisplay = null;
+
+        if (isLineTool(item.type)) {
+            // Create a visually accurate SVG for line tools
+            iconDisplay = (
+                <svg width="24" height="12" viewBox="0 0 24 12" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
+                    <line 
+                        x1="0" y1="6" x2="24" y2="6" 
+                        stroke={item.stroke || '#000'}
+                        strokeWidth={item.strokeWidth ? item.strokeWidth / 2 : 2} // Scale down for legend
+                        strokeDasharray={item.dash ? item.dash.join(' ') : 'none'}
+                    />
+                </svg>
+            );
+        } else if (item.item?.iconUrl) {
+            // Use the image if available
+            iconDisplay = <img src={item.item.iconUrl} alt={item.name} style={{ height: '1.2em', marginRight: '0.5em', verticalAlign: 'middle' }} />;
+        } else if (ReactIcon) {
+             // Fallback to React-based icon from library
+             iconDisplay = <span style={{ marginRight: '0.5em', verticalAlign: 'middle', display: 'inline-flex' }}>{ReactIcon}</span>
         } else {
-            icon = <span style={{ display: 'inline-block', width: '0.5em', height: '0.5em', borderRadius: '50%', backgroundColor: 'gray', marginRight: '0.5em', verticalAlign: 'middle' }}></span>;
+            // Generic fallback for things like 'schakt'
+            iconDisplay = <span style={{ display: 'inline-block', width: '0.8em', height: '0.8em', backgroundColor: item.fill || 'gray', marginRight: '0.5em', verticalAlign: 'middle' }}></span>;
         }
 
         return {
-            ...item,
-            name: item.name,
-            icon: icon
+            name: item.item.name, // Ensure we use the correct item name
+            quantity: item.quantity,
+            icon: iconDisplay
         };
     });
 
@@ -51,7 +65,7 @@ const LegendForPrint: React.FC<LegendForPrintProps> = ({ projectInfo, objects, c
                                 {item.icon}
                                 <span>{item.name}</span>
                             </td>
-                            <td style={{ padding: '1mm', textAlign: 'right', borderBottom: '0.5px solid #eee' }}>{item.quantity ? `${item.quantity} st` : '-'}</td>
+                            <td style={{ padding: '1mm', textAlign: 'right', borderBottom: '0.5px solid #eee' }}>{`${item.quantity} st`}</td>
                         </tr>
                     ))}
                 </tbody>
@@ -59,21 +73,23 @@ const LegendForPrint: React.FC<LegendForPrintProps> = ({ projectInfo, objects, c
         </div>
     );
 
-    const symbolItems = allItems.filter(item => !customItems.some(c => c.id === item.id));
+    const symbolItems = allItems.filter(item => !customItems.some(c => c.id === item.id) && item.name);
 
     return (
         <div style={{ padding: '5mm', height: '100%', display: 'flex', flexDirection: 'column', fontFamily: 'sans-serif' }}>
             <div style={{ flexShrink: 0, marginBottom: '5mm', borderBottom: '0.5px solid #333', paddingBottom: '3mm' }}>
                 <h3 style={{ fontSize: '6mm', margin: 0, fontWeight: 'bold' }}>PROJEKTINFORMATION</h3>
-                <p style={{ fontSize: '4mm', margin: '2mm 0 0 0' }}><strong>Företag:</strong> {projectInfo.company || '-'}</p>
-                <p style={{ fontSize: '4mm', margin: '2mm 0 0 0' }}><strong>Projekt:</strong> {projectInfo.projectName || 'Nytt ByggPilot Projekt'}</p>
-                <p style={{ fontSize: '4mm', margin: '2mm 0 0 0' }}><strong>ID:</strong> {projectInfo.projectId || '-'}</p>
-                <p style={{ fontSize: '4mm', margin: '2mm 0 0 0' }}><strong>Datum:</strong> {new Date().toISOString().slice(0, 10)}</p>
+                 <p style={{ fontSize: '4mm', margin: '2mm 0 0 0' }}><strong>Företag:</strong> {projectInfo.company || '-'}</p>
+                <p style={{ fontSize: '4mm', margin: '2mm 0 0 0' }}><strong>Projekt:</strong> {projectInfo.projectName || '-'}</p>
+                <p style={{ fontSize: '4mm', margin: '2mm 0 0 0' }}><strong>Projektnummer:</strong> {projectInfo.projectId || '-'}</p>
+                <p style={{ fontSize: '4mm', margin: '2mm 0 0 0' }}><strong>Ritad av:</strong> {projectInfo.author || '-'}</p>
+                <p style={{ fontSize: '4mm', margin: '2mm 0 0 0' }}><strong>Datum:</strong> {projectInfo.date || '-'}</p>
+                <p style={{ fontSize: '4mm', margin: '2mm 0 0 0' }}><strong>Revision:</strong> {projectInfo.revision || '-'}</p>
             </div>
 
             <div style={{ flexGrow: 1, overflowY: 'auto' }}>
                 <h3 style={{ fontSize: '6mm', margin: '0 0 4mm 0', fontWeight: 'bold' }}>TECKENFÖRKLARING</h3>
-                {renderTable(symbolItems, 'Symboler')}
+                {renderTable(symbolItems, 'Symboler & Objekt')}
                 {customItems.length > 0 && renderTable(customItems, 'Anpassad Förteckning')}
             </div>
         </div>

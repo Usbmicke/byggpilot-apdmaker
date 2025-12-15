@@ -1,11 +1,13 @@
 
 import { LIBRARY_CATEGORIES } from '../constants/libraryItems';
+import { LibraryItem } from '../types';
 
-// Hjälpfunktion för att hitta en ikons React-komponent baserat på dess typ
-export const findIcon = (type: string) => {
+export const findIcon = (type: string): React.ReactNode | null => {
     for (const category of LIBRARY_CATEGORIES) {
-        const item = category.items.find(i => i.type === type);
-        if (item) return item.icon;
+        const foundItem = category.items.find((item: LibraryItem) => item.type === type);
+        if (foundItem && foundItem.icon) {
+            return foundItem.icon;
+        }
     }
     return null;
 };

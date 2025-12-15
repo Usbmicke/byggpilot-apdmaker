@@ -1,8 +1,15 @@
 
 import React, { useRef, useEffect } from 'react';
-import { Image as KonvaImage, Transformer, Text, Line, Rect, Group } from 'react-konva';
+import { Image as KonvaImage, Transformer, Line, Rect } from 'react-konva';
 import useImage from 'use-image';
-import { APDObject, isSymbol, isRectTool, isLineTool, isCrane } from '../../types/index';
+import { 
+    APDObject, 
+    isSymbol, 
+    isRectTool, 
+    isLineTool, 
+    isCrane, 
+    isPen 
+} from '../../types/index';
 import CraneObject from '../canvas/CraneObject';
 
 interface DraggableObjectProps {
@@ -13,12 +20,18 @@ interface DraggableObjectProps {
     isDrawing: boolean;
 }
 
+const SAFE_DIMENSION = 50;
+
 const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSelect, onChange, isDrawing }) => {
     const shapeRef = useRef<any>();
     const trRef = useRef<any>();
 
-    const imageUrl = (isSymbol(obj.type) && !isCrane(obj)) ? (obj.item.iconUrl || '') : '';
-    const [image] = useImage(imageUrl, 'anonymous');
+    const width = obj.width || obj.item.width || SAFE_DIMENSION;
+    const height = obj.height || obj.item.height || SAFE_DIMENSION;
+
+    // --- FIX: Pass obj.type to isSymbol ---
+    const imageUrl = isSymbol(obj.type) ? (obj.item.iconUrl || '') : '';
+    const [image, imageStatus] = useImage(imageUrl, 'anonymous');
 
     useEffect(() => {
         if (isSelected && trRef.current) {
@@ -47,49 +60,78 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSe
             rotation: node.rotation(),
         };
 
+        const currentWidth = node.width();
+        const currentHeight = node.height();
+
         if (isCrane(obj)) {
-            const newArmLength = Math.max(20, (obj.width || 100) * scaleX);
+            const newArmLength = Math.max(20, currentWidth * scaleX);
             attrs.width = newArmLength;
-            attrs.radius = newArmLength * 0.8; 
+            attrs.radius = newArmLength * 0.8;
         } else {
-            attrs.width = Math.max(5, node.width() * scaleX);
-            attrs.height = Math.max(5, node.height() * scaleY);
+            attrs.width = Math.max(5, currentWidth * scaleX);
+            attrs.height = Math.max(5, currentHeight * scaleY);
         }
 
         onChange(attrs, true);
     };
 
-    const renderObject = () => {
-        const commonProps = {
-            id: obj.id,
-            name: obj.id,
-            x: obj.x,
-            y: obj.y,
-            rotation: obj.rotation,
-            draggable: !isDrawing,
-            listening: !isDrawing,
-            onClick: onSelect,
-            onTap: onSelect,
-            onDragEnd: handleDragEnd,
-            onTransformEnd: handleTransformEnd,
-            visible: obj.visible !== false,
-        };
+    const commonProps = {
+        id: obj.id,
+        name: obj.id,
+        x: obj.x,
+        y: obj.y,
+        rotation: obj.rotation,
+        draggable: !isDrawing,
+        listening: !isDrawing,
+        onClick: onSelect,
+        onTap: onSelect,
+        onDragEnd: handleDragEnd,
+        onTransformEnd: handleTransformEnd,
+        visible: obj.visible !== false,
+    };
 
+    const renderObject = () => {
         if (isCrane(obj)) {
-            return <CraneObject {...commonProps} ref={shapeRef} obj={obj} />;
+            return <CraneObject {...commonProps} ref={shapeRef} obj={obj} explicitWidth={width} />;
         }
 
+        // --- FIX: Pass obj.type to isSymbol ---
         if (isSymbol(obj.type)) {
-            return <KonvaImage {...commonProps} ref={shapeRef} image={image} width={obj.width} height={obj.height} />;
+            if (imageStatus !== 'loaded') {
+                return (
+                    <Rect 
+                        {...commonProps}
+                        ref={shapeRef} 
+                        width={width} 
+                        height={height} 
+                        fill="#a0aec0"
+                        stroke="#4a5568"
+                        strokeWidth={2}
+                    />
+                );
+            }
+            return <KonvaImage {...commonProps} ref={shapeRef} image={image} width={width} height={height} />;
         }
 
         if (isRectTool(obj.type)) {
-            // The only remaining rect tool is 'schakt'
-            return <Rect {...commonProps} ref={shapeRef} width={obj.width} height={obj.height} fill={obj.fill} stroke={obj.stroke} strokeWidth={obj.strokeWidth} />;
+            return <Rect {...commonProps} ref={shapeRef} width={width} height={height} fill={obj.fill} stroke={obj.stroke} strokeWidth={obj.strokeWidth} />;
         }
 
         if (isLineTool(obj.type)) {
-            return <Line {...commonProps} onTransformEnd={undefined} ref={shapeRef} points={obj.points} stroke={obj.stroke || '#000000'} strokeWidth={obj.strokeWidth || 2} dash={obj.dash} tension={obj.type === 'pen' ? 0.5 : 0} lineCap="round" lineJoin="round" />;
+            return (
+                <Line 
+                    {...commonProps} 
+                    onTransformEnd={undefined} 
+                    ref={shapeRef} 
+                    points={obj.points} 
+                    stroke={obj.stroke || '#000000'} 
+                    strokeWidth={obj.strokeWidth || 2} 
+                    dash={obj.dash} 
+                    tension={isPen(obj) ? 0.5 : 0} 
+                    lineCap="round" 
+                    lineJoin="round" 
+                />
+            );
         }
 
         return null;

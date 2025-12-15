@@ -5,14 +5,18 @@ import { APDObject } from '../../types';
 
 interface CraneObjectProps {
     obj: APDObject;
+    explicitWidth?: number; // New explicit prop for robust rendering
     [key: string]: any; // To allow other props like draggable, onDragEnd etc.
 }
 
-const CraneObject = forwardRef<any, CraneObjectProps>(({ obj, ...props }, ref) => {
+const CraneObject = forwardRef<any, CraneObjectProps>(({ obj, explicitWidth, ...props }, ref) => {
 
-    // Detailed dimensions based on object properties
-    const armLength = obj.width || 100; // Main arm length
-    const counterWeightLength = armLength * 0.3; // Proportionate counterweight
+    // --- ROBUST DIMENSIONING ---
+    // Prioritize the explicitly passed width. Fall back to the object's own width, then to a safe default.
+    const armLength = explicitWidth || obj.width || 100;
+    
+    // Detailed dimensions based on the robust armLength
+    const counterWeightLength = armLength * 0.3;
     const towerWidth = Math.min(armLength * 0.1, 20);
     const armWidth = towerWidth * 0.8;
 

@@ -1,20 +1,17 @@
 
-import React, { Suspense, useMemo, useRef, useCallback, useEffect } from 'react';
+import React, { Suspense, useMemo, useRef, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
-import { Sky, OrbitControls, Grid, Plane, useTexture, TransformControls } from '@react-three/drei';
+import { Sky, OrbitControls, Grid, Plane, useTexture, TransformControls, Billboard, GizmoHelper, GizmoViewport } from '@react-three/drei';
 import * as THREE from 'three';
 import { APDObject, LibraryCategory, isBuilding, isLine, isSchakt, isPen, isSymbol } from '../../types';
 
 const SCALE_FACTOR = 1 / 50;
 
-// --- Helper: Scene Cleanup --- 
-// KORRIGERING: Centraliserad funktion för att rensa minne
+// --- Helper: Scene Cleanup ---
 const cleanupScene = (scene: THREE.Scene) => {
     scene.traverse(object => {
         if (object instanceof THREE.Mesh) {
-            if (object.geometry) {
-                object.geometry.dispose();
-            }
+            if (object.geometry) object.geometry.dispose();
             if (object.material) {
                 if (Array.isArray(object.material)) {
                     object.material.forEach(material => {
@@ -30,23 +27,25 @@ const cleanupScene = (scene: THREE.Scene) => {
     });
 };
 
-
 // --- 3D Components ---
 
-const ThreeDSymbol = ({ obj, background, iconUrl, onSelect }: { obj: APDObject, background: any, iconUrl: string, onSelect: (e?: any) => void }) => {
+const BillboardSymbol = ({ obj, iconUrl, onSelect }: { obj: APDObject, iconUrl: string, onSelect: (e?: any) => void }) => {
     const texture = useTexture(iconUrl);
-    // Position is handled by parent group. We just render the billboard at an offset.
+    const poleHeight = 2.5;
+    const symbolSize = 1.5;
 
     return (
-        <Plane
-            name={obj.id}
-            args={[5, 5]} // Larger billboard
-            position={[0, 7.5, 0]} // Local height offset
-            onClick={onSelect}
-            rotation={[0, -THREE.MathUtils.degToRad(obj.rotation || 0), 0]}
-        >
-            <meshStandardMaterial map={texture} transparent side={THREE.DoubleSide} alphaTest={0.5} />
-        </Plane>
+        <group position={[(obj.x - (obj.width/2)) * SCALE_FACTOR, 0, (obj.y - (obj.height/2)) * SCALE_FACTOR]}>
+            <mesh castShadow>
+                <cylinderGeometry args={[0.05, 0.05, poleHeight, 8]} />
+                <meshStandardMaterial color="#555" />
+            </mesh>
+            <Billboard position={[0, poleHeight + symbolSize / 2, 0]}>
+                <Plane args={[symbolSize, symbolSize]} name={obj.id} onClick={onSelect}>
+                    <meshStandardMaterial map={texture} transparent side={THREE.DoubleSide} alphaTest={0.5} />
+                </Plane>
+            </Billboard>
+        </group>
     );
 };
 
@@ -56,88 +55,79 @@ const ThreeDObject = React.memo(({ obj, background, item, onSelect }: { obj: APD
     const position: [number, number, number] = [(obj.x - bgWidth / 2) * SCALE_FACTOR, 0, (obj.y - bgHeight / 2) * SCALE_FACTOR];
     const rotationY = -THREE.MathUtils.degToRad(obj.rotation || 0);
 
-    if (isSymbol(obj) && item?.iconUrl) {
-        // Floating Symbol with Line to Ground
-        const yHeight = 15; // Height in 3D units (meters?)
-        const symbolPos: [number, number, number] = [(obj.x - bgWidth / 2) * SCALE_FACTOR, yHeight * 0.5, (obj.y - bgHeight / 2) * SCALE_FACTOR]; // Billboard at top
-
-        return (
-            <group>
-                {/* The Vertical Line / Pole */}
-                <mesh position={[symbolPos[0], yHeight * 0.25, symbolPos[2]]}>
-                    <cylinderGeometry args={[0.05, 0.05, yHeight * 0.5, 8]} />
-                    <meshStandardMaterial color="#333" />
-                </mesh>
-
-                {/* The Floating Billboard */}
-                <ThreeDSymbol obj={obj} background={background} iconUrl={item.iconUrl} onSelect={onSelect} />
-            </group>
-        );
+    if (isSymbol(obj.type) && item?.iconUrl) {
+        return <BillboardSymbol obj={obj} iconUrl={item.iconUrl} onSelect={onSelect} />;
     }
 
-    if (isBuilding(obj) && obj.points && obj.points.length >= 6) {
-        // Extruded Building from Polygon Points
+    if (isBuilding(obj) && obj.points && obj.points.length >= 4) {
         const shape = new THREE.Shape();
         const startX = (obj.points[0] - bgWidth / 2) * SCALE_FACTOR;
         const startY = (obj.points[1] - bgHeight / 2) * SCALE_FACTOR;
         shape.moveTo(startX, startY);
-
         for (let i = 2; i < obj.points.length; i += 2) {
             const x = (obj.points[i] - bgWidth / 2) * SCALE_FACTOR;
-            const y = (obj.points[i + 1] - bgHeight / 2) * SCALE_FACTOR;
+            const y = (obj.points[i+1] - bgHeight / 2) * SCALE_FACTOR;
             shape.lineTo(x, y);
         }
-        shape.closePath(); // Ensure it's closed
+        shape.closePath();
 
         const extrudeSettings = {
-            depth: (obj.height || 150) * SCALE_FACTOR, // Default height ~3m if 150? Adjust scale.
+            depth: (obj.height3d || 10) * SCALE_FACTOR,
             bevelEnabled: false,
         };
 
-        // Rotation -90 deg X to lay flat, then points are X,Y (which become X,Z in 3D space usually, but here Shape is 2D X,Y)
-        // Wait, standard ExtrudeGeometry extrudes along Z. 
-        // We want flat shape on XZ plane, extruded UP (Y).
-        // Rotate mesh -90 (Math.PI/2) around X.
+        return (
+            <mesh name={obj.id} castShadow receiveShadow onClick={onSelect} rotation={[-Math.PI / 2, 0, 0]}>
+                <extrudeGeometry args={[shape, extrudeSettings]} />
+                <meshStandardMaterial color="#C2B280" />
+            </mesh>
+        );
+    }
+    
+    if (item?.name.toLowerCase().includes('bod') || item?.name.toLowerCase().includes('container')) {
+        const width = (obj.width || 0) * SCALE_FACTOR;
+        const height = (obj.height || 0) * SCALE_FACTOR;
+        const boxHeight = 2.5;
+        position[1] = boxHeight / 2;
+        const color = item?.name.toLowerCase().includes('container') ? '#0077be' : '#8b5a2b';
 
         return (
-            <mesh name={obj.id} rotation={[Math.PI / 2, 0, 0]} castShadow receiveShadow onClick={onSelect}>
-                <extrudeGeometry args={[shape, extrudeSettings]} />
-                <meshStandardMaterial color={obj.item.fill || '#cbd5e1'} />
+            <mesh name={obj.id} position={position} rotation={[0, rotationY, 0]} castShadow onClick={onSelect}>
+                <boxGeometry args={[width, boxHeight, height]} />
+                <meshStandardMaterial color={color} />
             </mesh>
         );
     }
 
-    // Fallback for "Bod" if not generic symbol? The user requested Bods to be 3D models. 
-    // For now, if it's a "Bod" from library, it acts as a symbol but we might want a box?
-    // Let's use the generic box for Bod if it lacks points (i.e. dragged from library, not drawn).
-    if (item?.name.toLowerCase().includes('bod') || item?.name.toLowerCase().includes('container')) {
-        position[1] = 1.5;
-        const width = (obj.width || 0) * SCALE_FACTOR;
-        const height = (obj.height || 0) * SCALE_FACTOR;
-        // TODO: Real GLTF models later.
-        return <mesh name={obj.id} position={position} rotation={[0, rotationY, 0]} castShadow onClick={onSelect}><boxGeometry args={[width, 3, height]} /><meshStandardMaterial color={item.title?.includes('Container') ? '#1e40af' : '#d1d5db'} /></mesh>;
-    }
-
-
     if ((isLine(obj) || isPen(obj)) && obj.points && obj.points.length >= 4) {
-        // ... (Existing Line Logic)
         const vectors = [];
         for (let i = 0; i < obj.points.length; i += 2) {
             vectors.push(new THREE.Vector3((obj.points[i] - bgWidth / 2) * SCALE_FACTOR, 0.1, (obj.points[i + 1] - bgHeight / 2) * SCALE_FACTOR));
         }
         if (vectors.length < 2) return null;
 
-        const curve = isPen(obj) ? new THREE.CatmullRomCurve3(vectors, false, 'catmullrom', 0.5) : new THREE.CatmullRomCurve3(vectors, false);
-        const tubeRadius = obj.item.type === 'STAKET' ? 0.2 : 0.1;
+        const curve = new THREE.CatmullRomCurve3(vectors, false, isPen(obj) ? 'catmullrom' : undefined, 0.5);
+        const tubeRadius = obj.type === 'fence' ? 0.05 : 0.03;
+        const color = obj.type === 'fence' ? '#808080' : (obj.item.stroke || '#ffffff');
 
-        return <mesh name={obj.id} castShadow onClick={onSelect} userData={{ isLine: true }}><tubeGeometry args={[curve, 64, tubeRadius, 8, false]} /><meshStandardMaterial color={obj.item.stroke || '#ffffff'} /></mesh>;
+        return (
+            <mesh name={obj.id} castShadow onClick={onSelect} userData={{ isLine: true }}>
+                <tubeGeometry args={[curve, 64, tubeRadius, 8, false]} />
+                <meshStandardMaterial color={color} />
+            </mesh>
+        );
     }
 
     if (isSchakt(obj)) {
         position[1] = 0.05;
         const width = (obj.width || 0) * SCALE_FACTOR;
         const height = (obj.height || 0) * SCALE_FACTOR;
-        return <mesh name={obj.id} position={position} rotation={[0, rotationY, 0]} onClick={onSelect}><boxGeometry args={[width, 0.1, height]} /><meshStandardMaterial color={obj.item.fill || '#a1662f'} transparent opacity={0.7} /></mesh>;
+        return (
+            <mesh name={obj.id} position={position} rotation={[0, rotationY, 0]} onClick={onSelect}>
+                <boxGeometry args={[width, 0.1, height]} />
+                <meshStandardMaterial color={obj.item.fill || '#a1662f'} transparent opacity={0.6} />
+            </mesh>
+        );
     }
 
     return null;
@@ -178,17 +168,23 @@ const Scene = ({ objects, background, libraryCategories, selectedId, onSelect, o
     const handleObjectChange = useCallback(() => {
         const obj = transformRef.current?.object;
         if (!obj || !selectedId) return;
+        
+        const newAttrs: Partial<APDObject> = {};
         const bgWidth = background?.width ?? 0;
         const bgHeight = background?.height ?? 0;
-        const newAttrs: Partial<APDObject> = {
-            x: (obj.position.x / SCALE_FACTOR) + (bgWidth / 2),
-            y: (obj.position.z / SCALE_FACTOR) + (bgHeight / 2),
-            rotation: -THREE.MathUtils.radToDeg(obj.rotation.y),
-        };
+
+        newAttrs.x = (obj.position.x / SCALE_FACTOR) + (bgWidth / 2);
+        newAttrs.y = (obj.position.z / SCALE_FACTOR) + (bgHeight / 2);
+        newAttrs.rotation = -THREE.MathUtils.radToDeg(obj.rotation.y);
+        
+        if (isBuilding(obj.userData?.sourceObj)) {
+            newAttrs.height3d = obj.scale.y * (obj.userData?.sourceObj.height3d || 10);
+        }
+
         onObjectChange(selectedId, newAttrs);
+
     }, [selectedId, onObjectChange, background]);
 
-    // KORRIGERING: Effektivisera snapshot-hanteringen.
     const handleDraggingChanged = useCallback((event: any) => {
         if (event.value) onSnapshotRequest();
     }, [onSnapshotRequest]);
@@ -221,20 +217,23 @@ const Scene = ({ objects, background, libraryCategories, selectedId, onSelect, o
                     object={selectedThreeObject}
                     onMouseUp={handleObjectChange}
                     onDraggingChanged={handleDraggingChanged}
-                    // KORRIGERING: Mode baserat på ifall objektet är en linje.
                     mode={selectedThreeObject.userData.isLine ? 'translate' : 'transform'}
                 />
             )}
 
             <Grid args={[200, 200]} infiniteGrid fadeDistance={200} fadeStrength={5} />
-            <OrbitControls ref={orbitControlsRef} makeDefault enableDamping dampingFactor={0.1} minDistance={10} maxDistance={200} enabled={!isLocked} />
+            
+            <GizmoHelper alignment="bottom-right" margin={[80, 80]}>
+                <GizmoViewport axisColors={['#ff4040', '#40ff40', '#4040ff']} labelColor="white" />
+            </GizmoHelper>
+            
+            <OrbitControls ref={orbitControlsRef} makeDefault enableDamping dampingFactor={0.1} minDistance={10} maxDistance={400} enabled={!isLocked} maxPolarAngle={Math.PI / 2.1} />
         </>
     );
 }
 
-
 // --- Main 3D View Component ---
-interface ThreeDViewProps {
+export interface ThreeDViewProps {
     objects: APDObject[];
     background: any;
     libraryCategories: LibraryCategory[];
@@ -246,10 +245,33 @@ interface ThreeDViewProps {
     setIsLocked: (locked: boolean) => void;
 }
 
-const ThreeDView: React.FC<ThreeDViewProps> = ({ objects, background, libraryCategories, selectedId, onSelect, onObjectChange, onSnapshotRequest, isLocked, setIsLocked }) => {
-    const sceneRef = useRef<THREE.Scene | null>(null);
+export interface ThreeDViewHandles {
+    capture: () => { url: string; width: number; height: number; };
+}
 
-    // KORRIGERING: Inför en effekt som rensar scenen vid avmontering.
+const CaptureController = forwardRef((props, ref) => {
+    const { gl } = useThree();
+    useImperativeHandle(ref, () => ({
+        capture: () => {
+            const dataURL = gl.domElement.toDataURL('image/png');
+            return {
+                url: dataURL,
+                width: gl.drawingBufferWidth,
+                height: gl.drawingBufferHeight,
+            };
+        }
+    }));
+    return null;
+});
+
+const ThreeDView = forwardRef<ThreeDViewHandles, ThreeDViewProps>(({ objects, background, libraryCategories, selectedId, onSelect, onObjectChange, onSnapshotRequest, isLocked, setIsLocked }, ref) => {
+    const sceneRef = useRef<THREE.Scene | null>(null);
+    const captureRef = useRef<{ capture: () => { url: string; width: number; height: number; } }>();
+
+     useImperativeHandle(ref, () => ({
+        capture: () => captureRef.current.capture()
+    }));
+
     useEffect(() => {
         return () => {
             if (sceneRef.current) {
@@ -260,7 +282,6 @@ const ThreeDView: React.FC<ThreeDViewProps> = ({ objects, background, libraryCat
 
     return (
         <div className="w-full h-full relative bg-slate-900">
-            {/* Lock Button (3D) */}
             <div className="absolute top-4 right-4 z-50">
                 <button
                     onClick={() => setIsLocked(!isLocked)}
@@ -275,7 +296,13 @@ const ThreeDView: React.FC<ThreeDViewProps> = ({ objects, background, libraryCat
                 </button>
             </div>
 
-            <Canvas shadows camera={{ position: [0, 60, 80], fov: 60 }} style={{ pointerEvents: 'all' }} onCreated={({ scene }) => sceneRef.current = scene}>
+            <Canvas 
+                shadows 
+                camera={{ position: [0, 60, 80], fov: 60 }} 
+                style={{ pointerEvents: 'all' }} 
+                onCreated={({ scene }) => sceneRef.current = scene}
+                gl={{ preserveDrawingBuffer: true }}
+            >
                 <Scene
                     objects={objects}
                     background={background}
@@ -286,10 +313,10 @@ const ThreeDView: React.FC<ThreeDViewProps> = ({ objects, background, libraryCat
                     onSnapshotRequest={onSnapshotRequest}
                     isLocked={isLocked}
                 />
+                <CaptureController ref={captureRef} />
             </Canvas>
         </div>
     );
-};
+});
 
 export default ThreeDView;
-

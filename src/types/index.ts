@@ -68,6 +68,11 @@ export interface APDObject {
     align?: string;
     radius?: number;
     visible?: boolean;
+
+    // 3D-specifika egenskaper
+    height3d?: number;
+    elevation?: number;
+    rotation3d?: { x: number; y: number; z: number };
 }
 
 export interface CustomLegendItem {
@@ -80,6 +85,9 @@ export interface ProjectInfo {
     company: string;
     projectName: string;
     projectId: string;
+    author: string, 
+    date: string, 
+    revision: string
 }
 
 export interface LibraryCategory {

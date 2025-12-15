@@ -109,16 +109,21 @@ const getCanvasFromHtml = (container: HTMLElement): Promise<HTMLCanvasElement> =
     });
 };
 
-interface ExportConfig {
+// REFAKTORERING: stageRef borttagen, ersatt med en generell `image` property.
+export interface ExportConfig {
     projectInfo: ProjectInfo;
     objects: APDObject[];
     customLegendItems: CustomLegendItem[];
-    stageRef: React.RefObject<any>;
+    image: {
+        url: string;
+        width: number;
+        height: number;
+    };
 }
 
 export const exportPlan = async (format: 'jpeg' | 'pdf', config: ExportConfig): Promise<{ status: 'success' | 'error', message: string }> => {
-    const { projectInfo, objects, customLegendItems, stageRef } = config;
-    if (!stageRef.current) return { status: 'error', message: 'Ritningsreferens saknas.' };
+    const { projectInfo, objects, customLegendItems, image } = config;
+    if (!image || !image.url) return { status: 'error', message: 'Bilddata saknas.' };
 
     const aggregatedItems = Object.values(objects.reduce((acc, obj) => {
         const key = obj.item.name;
@@ -145,67 +150,63 @@ export const exportPlan = async (format: 'jpeg' | 'pdf', config: ExportConfig): 
     container.style.left = '-9999px';
 
     try {
+        if (format === 'jpeg') {
+            const link = document.createElement('a');
+            link.download = `${projectInfo.projectName?.replace(/ /g, '_') || 'apd-plan'}.jpeg`;
+            link.href = image.url;
+            link.click();
+            return { status: 'success', message: 'Exporten är klar.' };
+        }
+        
+        // --- PDF Generation ---
         document.body.appendChild(container);
         container.innerHTML = await renderLegendToHtml(allLegendItems);
         const legendCanvas = await getCanvasFromHtml(container);
 
-        // KORRIGERING: Återgå till PNG för transparens, med balanserad upplösning.
-        const stageImageURL = stageRef.current.toDataURL({
-            pixelRatio: 1.5, // Balanserad upplösning för att hålla filstorleken nere.
-        });
+        const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a3' });
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const pageMargin = 10;
+
+        pdf.setFontSize(28);
+        pdf.setTextColor(30, 41, 59);
+        pdf.setFont('Helvetica', 'bold');
+        pdf.text('APD-PLAN', pageMargin, pageMargin + 12);
+
+        const infoX = pageMargin + 85;
+        const infoY = pageMargin + 4;
+        const lineHeight = 5;
+        pdf.setFontSize(9);
+        pdf.setTextColor(80, 91, 109);
+        pdf.setFont('Helvetica', 'normal');
+        pdf.text(`Företag: ${projectInfo.company || '-'}`, infoX, infoY);
+        pdf.text(`Projekt: ${projectInfo.projectName || '-'}`, infoX, infoY + lineHeight);
+        pdf.text(`Projektnummer: ${projectInfo.projectId || '-'}`, infoX, infoY + lineHeight * 2);
+        pdf.text(`Ritad av: ${projectInfo.author || '-'}`, infoX, infoY + lineHeight * 3);
+        pdf.text(`Datum: ${projectInfo.date || '-'}`, infoX + 70, infoY);
+        pdf.text(`Revision: ${projectInfo.revision || '-'}`, infoX + 70, infoY + lineHeight);
+
+        const legendWidth = 55;
+        const spaceBetween = 5;
+        const drawingAreaWidth = pdfWidth - legendWidth - (pageMargin * 2) - spaceBetween;
+        const drawingAreaHeight = pdfHeight - (pageMargin * 2) - 20; 
+
+        // REFAKTORERING: Använd `image`-objektet för skalning
+        const scale = Math.min(drawingAreaWidth / image.width, drawingAreaHeight / image.height);
+        const finalDrawingWidth = image.width * scale;
+        const finalDrawingHeight = image.height * scale;
         
-        if (format === 'jpeg') {
-            const link = document.createElement('a');
-            link.download = `${projectInfo.projectName?.replace(/ /g, '_') || 'apd-plan'}.jpeg`;
-            link.href = stageImageURL;
-            link.click();
-        } else { // PDF
-            const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a3' });
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = pdf.internal.pageSize.getHeight();
-            const pageMargin = 10;
+        const drawingX = pageMargin + (drawingAreaWidth - finalDrawingWidth) / 2;
+        const drawingY = pageMargin + 20 + (drawingAreaHeight - finalDrawingHeight) / 2;
 
-            pdf.setFontSize(28);
-            pdf.setTextColor(30, 41, 59);
-            pdf.setFont('Helvetica', 'bold');
-            pdf.text('APD-PLAN', pageMargin, pageMargin + 12);
+        pdf.addImage(image.url, 'PNG', drawingX, drawingY, finalDrawingWidth, finalDrawingHeight, undefined, 'FAST');
 
-            const infoX = pageMargin + 85;
-            const infoY = pageMargin + 4;
-            const lineHeight = 5;
-            pdf.setFontSize(9);
-            pdf.setTextColor(80, 91, 109);
-            pdf.setFont('Helvetica', 'normal');
-            pdf.text(`Företag: ${projectInfo.company || '-'}`, infoX, infoY);
-            pdf.text(`Projekt: ${projectInfo.projectName || '-'}`, infoX, infoY + lineHeight);
-            pdf.text(`Projektnummer: ${projectInfo.projectId || '-'}`, infoX, infoY + lineHeight * 2);
-            pdf.text(`Ritad av: ${projectInfo.author || '-'}`, infoX, infoY + lineHeight * 3);
-            pdf.text(`Datum: ${projectInfo.date || '-'}`, infoX + 70, infoY);
-            pdf.text(`Revision: ${projectInfo.revision || '-'}`, infoX + 70, infoY + lineHeight);
+        const legendX = pdfWidth - pageMargin - legendWidth;
+        const legendCanvasUrl = legendCanvas.toDataURL('image/png', 1.0);
+        const legendHeight = (legendCanvas.height * legendWidth) / legendCanvas.width;
+        pdf.addImage(legendCanvasUrl, 'PNG', legendX, pageMargin + 20, legendWidth, legendHeight);
 
-            const legendWidth = 55;
-            const spaceBetween = 5;
-            const drawingAreaWidth = pdfWidth - legendWidth - (pageMargin * 2) - spaceBetween;
-            const drawingAreaHeight = pdfHeight - (pageMargin * 2) - 20; 
-
-            const stage = stageRef.current;
-            const scale = Math.min(drawingAreaWidth / stage.width(), drawingAreaHeight / stage.height());
-            const finalDrawingWidth = stage.width() * scale;
-            const finalDrawingHeight = stage.height() * scale;
-            
-            const drawingX = pageMargin + (drawingAreaWidth - finalDrawingWidth) / 2;
-            const drawingY = pageMargin + 20 + (drawingAreaHeight - finalDrawingHeight) / 2;
-
-            // KORRIGERING: Använd 'PNG' som format och 'FAST' för kompression.
-            pdf.addImage(stageImageURL, 'PNG', drawingX, drawingY, finalDrawingWidth, finalDrawingHeight, undefined, 'FAST');
-
-            const legendX = pdfWidth - pageMargin - legendWidth;
-            const legendCanvasUrl = legendCanvas.toDataURL('image/png', 1.0);
-            const legendHeight = (legendCanvas.height * legendWidth) / legendCanvas.width;
-            pdf.addImage(legendCanvasUrl, 'PNG', legendX, pageMargin + 20, legendWidth, legendHeight);
-
-            pdf.save(`${projectInfo.projectName?.replace(/ /g, '_') || 'apd-plan'}.pdf`);
-        }
+        pdf.save(`${projectInfo.projectName?.replace(/ /g, '_') || 'apd-plan'}.pdf`);
 
         return { status: 'success', message: 'Exporten är klar.' };
 

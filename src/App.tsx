@@ -11,13 +11,15 @@ import Header from './components/header/Header';
 import Library from './components/library/LibraryPanel';
 import Legend from './components/legend/LegendPanel';
 import CanvasPanel, { CanvasPanelRef } from './components/canvas/CanvasPanel';
-import ThreeDView from './components/3d/ThreeDView';
+import ThreeDView, { ThreeDViewHandles } from './components/3d/ThreeDView';
 import { LIBRARY_CATEGORIES } from './constants/libraryItems';
 import { handlePDF } from './utils/pdfHandler';
+import { exportPlan } from './lib/exportUtils';
 
 const App: React.FC = () => {
     const stageRef = useRef<any>(null);
     const canvasPanelRef = useRef<CanvasPanelRef>(null);
+    const threeDViewRef = useRef<ThreeDViewHandles>(null); // Ref för 3D-vyn
 
     const { state: objects, setState: setObjects, undo, redo, canUndo, canRedo, resetHistory } = useHistory<APDObject[]>([]);
 
@@ -53,19 +55,15 @@ const App: React.FC = () => {
     const addObject = useCallback((item: LibraryItem, position: { x: number, y: number }, extraProps: Partial<APDObject> = {}): APDObject => {
         const baseDimension = background ? Math.max(background.width, background.height) : 2000;
         const dynamicSize = Math.max(20, baseDimension / 40);
-
         const baseProps = { ...item.initialProps, width: item.width || item.initialProps?.width || dynamicSize, height: item.height || item.initialProps?.height || dynamicSize };
-
         let newObject: APDObject = {
             id: uuidv4(), rotation: 0, scaleX: 1, scaleY: 1, ...baseProps, type: item.type, item: item, quantity: 1, x: position.x, y: position.y, visible: true, ...extraProps,
         };
-
         if (isCrane(newObject)) {
             newObject.radius = newObject.radius || baseDimension / 10;
             newObject.width = newObject.width || dynamicSize * 1.5;
             newObject.height = newObject.height || dynamicSize * 1.5;
         }
-
         setObjects([...objects, newObject], true);
         return newObject;
     }, [objects, setObjects, background]);
@@ -79,22 +77,12 @@ const App: React.FC = () => {
         const groupObjects = objects.filter(obj => (obj.item.id || obj.type) === groupId);
         const otherObjects = objects.filter(obj => (obj.item.id || obj.type) !== groupId);
         const template = groupObjects[0];
-
         if (!template) return;
-
         let finalObjects = otherObjects;
-
         if (newQuantity > 0) {
-            const representativeObject: APDObject = {
-                ...template,
-                id: uuidv4(),
-                quantity: newQuantity,
-                x: template.x,
-                y: template.y,
-            };
+            const representativeObject: APDObject = { ...template, id: uuidv4(), quantity: newQuantity, x: template.x, y: template.y };
             finalObjects = [...otherObjects, representativeObject];
         } 
-        
         setObjects(finalObjects, true);
     };
 
@@ -142,30 +130,68 @@ const App: React.FC = () => {
         toast.success('Projektet har rensats!');
     };
 
+    // --- EXPORTFUNKTIONER ---
+    const handleExport = async (format: 'jpeg' | 'pdf', imagePromise: Promise<{ url: string; width: number; height: number; } | null>) => {
+        const toastId = toast.loading('Förbereder export...');
+        try {
+            const image = await imagePromise;
+            if (!image) {
+                throw new Error('Kunde inte skapa bild för export.');
+            }
+            const result = await exportPlan(format, { projectInfo, objects, customLegendItems, image });
+            if (result.status === 'success') {
+                toast.success('Exporten är klar!', { id: toastId });
+            } else {
+                throw new Error(result.message);
+            }
+        } catch (error) {
+            toast.error(`Export misslyckades: ${error instanceof Error ? error.message : 'Okänt fel'}`, { id: toastId, duration: 6000 });
+        }
+    };
+
+    const handleExport2D = (format: 'jpeg' | 'pdf') => {
+        const imagePromise = new Promise<{ url: string; width: number; height: number; } | null>((resolve) => {
+            if (stageRef.current) {
+                const url = stageRef.current.toDataURL({ pixelRatio: 2 });
+                resolve({ url, width: stageRef.current.width(), height: stageRef.current.height() });
+            } else {
+                resolve(null);
+            }
+        });
+        handleExport(format, imagePromise);
+    };
+
+    const handleExport3D = (format: 'jpeg' | 'pdf') => {
+        const imagePromise = new Promise<{ url: string; width: number; height: number; } | null>((resolve) => {
+            if (threeDViewRef.current) {
+                const imageData = threeDViewRef.current.capture();
+                resolve(imageData);
+            } else {
+                resolve(null);
+            }
+        });
+        handleExport(format, imagePromise);
+    };
+
     return (
         <DndProvider backend={HTML5Backend}>
             <div className="flex flex-col h-screen bg-slate-900 text-white font-sans overflow-hidden">
                 <Toaster position="bottom-center" toastOptions={{ className: 'bg-slate-700 text-white', duration: 4000 }} />
                 <Header
-                    stageRef={stageRef}
-                    background={background}
                     handleFile={handleFile}
-                    objects={objects}
-                    customLegendItems={customLegendItems}
-                    projectInfo={projectInfo}
-                    setProjectInfo={setProjectInfo}
                     clearProject={clearProject}
                     toggleLibrary={() => setIsLibraryOpen(!isLibraryOpen)}
                     toggleLegend={() => setIsLegendOpen(!isLegendOpen)}
                     show3D={show3D}
                     setShow3D={setShow3D}
-                    isLocked={isLocked}
-                    setIsLocked={setIsLocked}
+                    onExport2D={handleExport2D}
+                    onExport3D={handleExport3D}
+                    backgroundIsLoaded={!!background}
                 />
                 <div className="flex flex-1 overflow-hidden">
                     <Library isOpen={isLibraryOpen} selectedTool={selectedTool} onSelectTool={setSelectedTool} />
                     <div className="flex-1 flex flex-col relative">
-                        {show3D ? <ThreeDView objects={objects} background={background} libraryCategories={LIBRARY_CATEGORIES} selectedId={selectedIds.length > 0 ? selectedIds[0] : null} onSelect={(id) => setSelectedIds(id ? [id] : [])} onObjectChange={(id, attrs) => updateObject(id, attrs, false)} onSnapshotRequest={() => setObjects(objects, true)} isLocked={isLocked} setIsLocked={setIsLocked} />
+                        {show3D ? <ThreeDView ref={threeDViewRef} objects={objects} background={background} libraryCategories={LIBRARY_CATEGORIES} selectedId={selectedIds.length > 0 ? selectedIds[0] : null} onSelect={(id) => setSelectedIds(id ? [id] : [])} onObjectChange={(id, attrs) => updateObject(id, attrs, false)} onSnapshotRequest={() => setObjects(objects, true)} isLocked={isLocked} setIsLocked={setIsLocked} />
                             : <CanvasPanel ref={canvasPanelRef} stageRef={stageRef} objects={objects} background={background} selectedIds={selectedIds} setSelectedIds={setSelectedIds} checkDeselect={checkDeselect} addObject={addObject} updateObject={updateObject} removeObjects={removeObjects} handleFile={handleFile} undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo} selectedTool={selectedTool} setSelectedTool={setSelectedTool} />}
                     </div>
                     {background && <Legend isOpen={isLegendOpen} projectInfo={projectInfo} setProjectInfo={setProjectInfo} objects={objects} customItems={customLegendItems} setCustomItems={setCustomLegendItems} onRemoveObject={removeObjects} onUpdateObject={handleUpdateGroupQuantity} />}

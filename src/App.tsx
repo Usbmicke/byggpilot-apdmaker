@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import toast, { Toaster } from 'react-hot-toast';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { APDObject, LibraryItem, ProjectInfo, CustomLegendItem, isCrane, isText } from './types';
+import { APDObject, LibraryItem, ProjectInfo, CustomLegendItem, isCrane } from './types';
 import { defaultProjectInfo, defaultCustomLegend } from './utils/defaults';
 import { useHistory } from './hooks/useHistory';
 import Header from './components/header/Header';
@@ -66,10 +66,6 @@ const App: React.FC = () => {
             newObject.height = newObject.height || dynamicSize * 1.5;
         }
 
-        if (isText(newObject)) {
-            newObject = { ...newObject, text: 'Text', fill: '#000000', fontSize: Math.max(12, baseDimension / 80), padding: 5, width: baseDimension / 20, height: baseDimension / 60, align: 'center' };
-        }
-
         setObjects([...objects, newObject], true);
         return newObject;
     }, [objects, setObjects, background]);
@@ -79,34 +75,25 @@ const App: React.FC = () => {
         setObjects(newObjects, immediate);
     }, [objects, setObjects]);
 
-    const handleTextCreate = (obj: APDObject) => {
-        if (canvasPanelRef.current) canvasPanelRef.current.startTextEdit(obj);
-    };
-
-    // **FINAL FIX:** Replaces the complex, buggy quantity update logic with a simple, robust, and declarative version.
     const handleUpdateGroupQuantity = (groupId: string, newQuantity: number) => {
         const groupObjects = objects.filter(obj => (obj.item.id || obj.type) === groupId);
         const otherObjects = objects.filter(obj => (obj.item.id || obj.type) !== groupId);
         const template = groupObjects[0];
 
-        if (!template) return; // Should not happen if called from legend
+        if (!template) return;
 
-        // Remove all old objects from the group
         let finalObjects = otherObjects;
 
-        // If the new quantity is > 0, add a single new object representing the whole group.
-        // We place it at the position of the first object of the old group.
         if (newQuantity > 0) {
             const representativeObject: APDObject = {
-                ...template, // Spread the template to keep type, item, etc.
-                id: uuidv4(), // Give it a new stable ID for this representative instance
-                quantity: newQuantity, // Set the new total quantity
-                x: template.x, // Use position of the first item
+                ...template,
+                id: uuidv4(),
+                quantity: newQuantity,
+                x: template.x,
                 y: template.y,
             };
             finalObjects = [...otherObjects, representativeObject];
         } 
-        // If newQuantity is 0, we simply don't add any objects back, effectively deleting the group.
         
         setObjects(finalObjects, true);
     };
@@ -179,7 +166,7 @@ const App: React.FC = () => {
                     <Library isOpen={isLibraryOpen} selectedTool={selectedTool} onSelectTool={setSelectedTool} />
                     <div className="flex-1 flex flex-col relative">
                         {show3D ? <ThreeDView objects={objects} background={background} libraryCategories={LIBRARY_CATEGORIES} selectedId={selectedIds.length > 0 ? selectedIds[0] : null} onSelect={(id) => setSelectedIds(id ? [id] : [])} onObjectChange={(id, attrs) => updateObject(id, attrs, false)} onSnapshotRequest={() => setObjects(objects, true)} isLocked={isLocked} setIsLocked={setIsLocked} />
-                            : <CanvasPanel ref={canvasPanelRef} stageRef={stageRef} objects={objects} background={background} selectedIds={selectedIds} setSelectedIds={setSelectedIds} checkDeselect={checkDeselect} addObject={addObject} updateObject={updateObject} removeObjects={removeObjects} handleFile={handleFile} undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo} selectedTool={selectedTool} setSelectedTool={setSelectedTool} onTextCreate={handleTextCreate} />}
+                            : <CanvasPanel ref={canvasPanelRef} stageRef={stageRef} objects={objects} background={background} selectedIds={selectedIds} setSelectedIds={setSelectedIds} checkDeselect={checkDeselect} addObject={addObject} updateObject={updateObject} removeObjects={removeObjects} handleFile={handleFile} undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo} selectedTool={selectedTool} setSelectedTool={setSelectedTool} />}
                     </div>
                     {background && <Legend isOpen={isLegendOpen} projectInfo={projectInfo} setProjectInfo={setProjectInfo} objects={objects} customItems={customLegendItems} setCustomItems={setCustomLegendItems} onRemoveObject={removeObjects} onUpdateObject={handleUpdateGroupQuantity} />}
                 </div>

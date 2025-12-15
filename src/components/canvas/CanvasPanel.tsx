@@ -5,14 +5,11 @@ import useImage from 'use-image';
 import { useDrop } from 'react-dnd';
 import { NativeTypes } from 'react-dnd-html5-backend';
 
-import { APDObject, LibraryItem, isRectTool, isLineTool, isText } from '../../types/index';
+import { APDObject, LibraryItem, isRectTool, isLineTool } from '../../types/index';
 import DraggableObject from '../draggable/DraggableObject';
-import { EditingTextState, TextEditor } from './TextEditor';
 import { useStageInteraction } from '../../hooks/useStageInteraction';
 import { useDrawing } from '../../hooks/useDrawing';
 import { useCanvasDrawing } from '../../hooks/useCanvasDrawing';
-
-// --- Helper Components ---
 
 const UndoRedoControls = React.memo(({ undo, redo, canUndo, canRedo }: { undo: () => void, redo: () => void, canUndo: boolean, canRedo: boolean }) => (
     <div className="absolute top-4 right-4 z-10 flex gap-2">
@@ -23,11 +20,7 @@ const UndoRedoControls = React.memo(({ undo, redo, canUndo, canRedo }: { undo: (
 
 const WelcomeScreen: React.FC<{ onFileSelect: (file: File) => void }> = ({ onFileSelect }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const [{ isOver }, drop] = useDrop(() => ({
-        accept: [NativeTypes.FILE],
-        drop: (item: { files: File[] }) => onFileSelect(item.files[0]),
-        collect: (monitor) => ({ isOver: monitor.isOver() && monitor.canDrop() })
-    }));
+    const [{ isOver }, drop] = useDrop(() => ({ accept: [NativeTypes.FILE], drop: (item: { files: File[] }) => onFileSelect(item.files[0]), collect: (monitor) => ({ isOver: monitor.isOver() && monitor.canDrop() }) }));
     return (
         <div ref={drop} className={`absolute inset-0 flex items-center justify-center z-10 bg-slate-900/50 transition-all ${isOver ? 'bg-blue-900/70' : ''}`}>
             <div className={`relative flex flex-col items-center justify-center w-4/5 max-w-2xl p-16 border-4 border-dashed rounded-2xl bg-slate-800 group transition-all duration-300 ${isOver ? 'border-blue-400' : 'border-slate-600 group-hover:border-blue-500'}`} onClick={() => fileInputRef.current?.click()}>
@@ -43,11 +36,7 @@ const WelcomeScreen: React.FC<{ onFileSelect: (file: File) => void }> = ({ onFil
 
 const DropIndicator: React.FC<{ isOver: boolean }> = ({ isOver }) => {
     if (!isOver) return null;
-    return (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-blue-900/50 border-4 border-dashed border-blue-400 rounded-lg pointer-events-none">
-            <h2 className="text-3xl font-bold text-white">Släpp filen för att ladda upp</h2>
-        </div>
-    );
+    return <div className="absolute inset-0 z-20 flex items-center justify-center bg-blue-900/50 border-4 border-dashed border-blue-400 rounded-lg pointer-events-none"><h2 className="text-3xl font-bold text-white">Släpp filen för att ladda upp</h2></div>;
 }
 
 interface CanvasPanelProps {
@@ -67,75 +56,38 @@ interface CanvasPanelProps {
     redo: () => void;
     selectedTool: LibraryItem | null;
     setSelectedTool: (item: LibraryItem | null) => void;
-    onTextCreate: (obj: APDObject) => void;
 }
 
-export interface CanvasPanelRef {
-    startTextEdit: (obj: APDObject) => void;
-}
+export interface CanvasPanelRef {}
 
 const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>((
-    { stageRef, objects, background, selectedIds, setSelectedIds, checkDeselect, addObject, updateObject, removeObjects, handleFile, canUndo, canRedo, undo, redo, selectedTool, setSelectedTool, onTextCreate }, ref
+    { stageRef, objects, background, selectedIds, setSelectedIds, checkDeselect, addObject, updateObject, removeObjects, handleFile, canUndo, canRedo, undo, redo, selectedTool, setSelectedTool }, ref
 ) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const [size, setSize] = useState({ width: 0, height: 0 });
-    const [editingText, setEditingText] = useState<EditingTextState | null>(null);
-    const [pendingEditId, setPendingEditId] = useState<string | null>(null);
 
     const imageUrl = background?.url || '';
     const isDataUrl = imageUrl.startsWith('data:') || imageUrl.startsWith('blob:');
     const [bgImage] = useImage(imageUrl, isDataUrl ? undefined : 'anonymous');
 
-    const { drop, isOver, canDrop, draggedItemType } = useDrawing({ stageRef, selectedTool, addObject, setSelectedTool, onTextCreate });
+    const { drop, isOver, canDrop, draggedItemType } = useDrawing({ stageRef, selectedTool, addObject, setSelectedTool });
 
-    const { isDrawing, currentPoints, currentRect, handleMouseDown: handleDrawingMouseDown, handleMouseMove: handleDrawingMouseMove, handleMouseUp: handleDrawingMouseUp, finishDrawing, cancelDrawing } = useCanvasDrawing({ stageRef, selectedTool, addObject, setSelectedTool, onTextCreate });
+    const { isDrawing, currentPoints, currentRect, handleMouseDown: handleDrawingMouseDown, handleMouseMove: handleDrawingMouseMove, handleMouseUp: handleDrawingMouseUp, finishDrawing, cancelDrawing } = useCanvasDrawing({ stageRef, selectedTool, addObject, setSelectedTool });
 
-    const isInteractionBlocked = !!editingText || isDrawing || (!!selectedTool && (isLineTool(selectedTool.type) || isRectTool(selectedTool.type)));
+    const isInteractionBlocked = isDrawing || (!!selectedTool && (isLineTool(selectedTool.type) || isRectTool(selectedTool.type)));
 
     const { selectionBox, selectionRectRef, handleMouseDown: handleSelectionMouseDown, handleMouseMove: handleSelectionMouseMove, handleMouseUp: handleSelectionMouseUp } = useStageInteraction({ stageRef, objects, selectedIds, setSelectedIds, checkDeselect, isInteractionBlocked });
 
-    // **UI Improvement:** Change cursor based on the selected tool.
     useEffect(() => {
         const container = containerRef.current;
         if (!container) return;
-        const isDrawingToolActive = selectedTool && (isLineTool(selectedTool.type) || isRectTool(selectedTool.type));
-        container.style.cursor = isDrawingToolActive ? 'crosshair' : 'default';
-    }, [selectedTool]);
+        container.style.cursor = isDrawing ? 'crosshair' : 'default';
+    }, [isDrawing]);
 
     useEffect(() => { if (containerRef.current) drop(containerRef.current); }, [drop]);
 
-    const handleStartTextEdit = useCallback((obj: APDObject) => {
-        const stage = stageRef.current;
-        if (!stage) return;
-        const textNode = stage.findOne('.' + obj.id);
-        if (!textNode) {
-            setPendingEditId(obj.id);
-            return;
-        }
-        if (pendingEditId === obj.id) setPendingEditId(null);
-        setSelectedIds([]);
-        updateObject(obj.id, { visible: false }, false);
-        const transform = textNode.getAbsoluteTransform();
-        const pos = { x: transform.getMatrix()[4], y: transform.getMatrix()[5] };
-        const stageBox = stage.container().getBoundingClientRect();
-        setEditingText({
-            id: obj.id, text: obj.text || '', x: stageBox.left + pos.x, y: stageBox.top + pos.y,
-            width: textNode.width() * textNode.scaleX(), height: textNode.height() * textNode.scaleY(),
-            fontSize: obj.fontSize || 16, fontFamily: obj.fontFamily || 'sans-serif', fill: obj.fill || '#000', rotation: textNode.rotation(),
-        });
-    }, [stageRef, updateObject, setSelectedIds, pendingEditId]);
-
-    useEffect(() => {
-        if (pendingEditId) {
-            const obj = objects.find(o => o.id === pendingEditId);
-            if (obj) handleStartTextEdit(obj);
-        }
-    }, [objects, pendingEditId, handleStartTextEdit]);
-
-    useImperativeHandle(ref, () => ({ startTextEdit: handleStartTextEdit }));
-
     const handleObjectClick = (e: any) => {
-        if (editingText || isDrawing) return;
+        if (isDrawing) return;
         const id = e.target.id();
         const isShift = e.evt.shiftKey;
         const newSelectedIds = isShift ? (selectedIds.includes(id) ? selectedIds.filter(sid => sid !== id) : [...selectedIds, id]) : (selectedIds.length === 1 && selectedIds[0] === id ? [] : [id]);
@@ -144,7 +96,7 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>((
 
     const handleStageMouseDown = (e: any) => {
         if (e.target !== e.target.getStage()) return;
-        if (selectedTool && (isLineTool(selectedTool.type) || isRectTool(selectedTool.type))) {
+        if (isDrawing || (selectedTool && (isLineTool(selectedTool.type) || isRectTool(selectedTool.type)))) {
             handleDrawingMouseDown(e);
         } else {
             handleSelectionMouseDown(e);
@@ -165,31 +117,25 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>((
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
         if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
         if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); redo(); }
-        if (e.key === 'Delete' || e.key === 'Backspace') { if (selectedIds.length > 0 && !editingText) removeObjects(selectedIds); }
+        if (e.key === 'Delete' || e.key === 'Backspace') { if (selectedIds.length > 0) removeObjects(selectedIds); }
         if (e.key === 'Escape') {
             if (isDrawing) {
                 cancelDrawing();
-                setSelectedTool(null);
             } else {
                 setSelectedIds([]);
                 if (selectedTool) setSelectedTool(null);
             }
         }
         if (e.key === 'Enter' && isDrawing) finishDrawing();
-    }, [selectedIds.length, removeObjects, undo, redo, setSelectedIds, selectedTool, setSelectedTool, isDrawing, cancelDrawing, finishDrawing, editingText]);
+    }, [selectedIds.length, removeObjects, undo, redo, setSelectedIds, selectedTool, setSelectedTool, isDrawing, cancelDrawing, finishDrawing]);
 
     useEffect(() => {
-        const checkSize = () => {
-            if (containerRef.current) setSize({ width: containerRef.current.offsetWidth, height: containerRef.current.offsetHeight });
-        };
+        const checkSize = () => { if (containerRef.current) setSize({ width: containerRef.current.offsetWidth, height: containerRef.current.offsetHeight }); };
         checkSize();
         const observer = new ResizeObserver(checkSize);
         if (containerRef.current) observer.observe(containerRef.current);
         window.addEventListener('keydown', handleKeyDown);
-        return () => {
-            observer.disconnect();
-            window.removeEventListener('keydown', handleKeyDown);
-        }
+        return () => { observer.disconnect(); window.removeEventListener('keydown', handleKeyDown); }
     }, [handleKeyDown]);
 
     useEffect(() => {
@@ -201,21 +147,6 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>((
         }
     }, [background, bgImage, size, stageRef]);
 
-    const handleTextUpdate = (newText: string, newWidth: number, newHeight: number) => {
-        if (editingText) {
-            updateObject(editingText.id, { text: newText, width: newWidth, height: newHeight, visible: true }, true);
-            setSelectedIds([editingText.id]);
-            setEditingText(null);
-        }
-    };
-
-    const handleTextCancel = () => {
-        if (editingText) {
-            updateObject(editingText.id, { visible: true }, false);
-            setEditingText(null);
-        }
-    };
-
     return (
         <div ref={containerRef} className="absolute inset-0 z-0 bg-slate-500 overflow-hidden outline-none" tabIndex={0}>
             {!background && <WelcomeScreen onFileSelect={handleFile} />}
@@ -225,37 +156,34 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>((
             </div>
             <UndoRedoControls undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo} />
             {background && (
-                <>
-                    <Stage
-                        ref={stageRef}
-                        width={size.width}
-                        height={size.height}
-                        onMouseDown={handleStageMouseDown}
-                        onMouseMove={handleStageMouseMove}
-                        onMouseUp={handleStageMouseUp}
-                        onClick={checkDeselect}
-                    >
-                        <Layer>
-                            {bgImage && <KonvaImage image={bgImage} width={background.width} height={background.height} listening={false} />}
-                            {objects.map((obj) => (
-                                <DraggableObject
-                                    key={obj.id}
-                                    obj={obj}
-                                    isSelected={selectedIds.includes(obj.id)}
-                                    onSelect={handleObjectClick}
-                                    onChange={(attrs, imm) => updateObject(obj.id, attrs, imm)}
-                                    onTextDblClick={() => isText(obj) && handleStartTextEdit(obj)}
-                                    isDrawing={isDrawing}
-                                />
-                            ))}
-                            <Transformer boundBoxFunc={(oldBox, newBox) => newBox.width < 5 || newBox.height < 5 ? oldBox : newBox} anchorStroke="#007bff" anchorFill="#fff" anchorSize={10} borderStroke="#007bff" borderDash={[6, 2]} />
-                            <Rect ref={selectionRectRef} {...selectionBox} fill="rgba(0, 123, 255, 0.2)" stroke="rgba(0, 123, 255, 0.6)" strokeWidth={1} listening={false} />
-                            {isDrawing && currentRect && <Rect x={currentRect.x} y={currentRect.y} width={currentRect.width} height={currentRect.height} fill="rgba(0, 255, 0, 0.3)" stroke="green" strokeWidth={1} listening={false} />}
-                            {isDrawing && currentPoints.length > 0 && <Line points={currentPoints} stroke="blue" strokeWidth={2} dash={[5, 5]} listening={false} />}
-                        </Layer>
-                    </Stage>
-                    {editingText && <TextEditor editingState={editingText} onUpdate={handleTextUpdate} onCancel={handleTextCancel} />}
-                </>)}
+                <Stage
+                    ref={stageRef}
+                    width={size.width}
+                    height={size.height}
+                    onMouseDown={handleStageMouseDown}
+                    onMouseMove={handleStageMouseMove}
+                    onMouseUp={handleStageMouseUp}
+                    onClick={checkDeselect}
+                >
+                    <Layer>
+                        {bgImage && <KonvaImage image={bgImage} width={background.width} height={background.height} listening={false} />}
+                        {objects.map((obj) => (
+                            <DraggableObject
+                                key={obj.id}
+                                obj={obj}
+                                isSelected={selectedIds.includes(obj.id)}
+                                onSelect={handleObjectClick}
+                                onChange={(attrs, imm) => updateObject(obj.id, attrs, imm)}
+                                isDrawing={isDrawing}
+                            />
+                        ))}
+                        <Transformer boundBoxFunc={(oldBox, newBox) => newBox.width < 5 || newBox.height < 5 ? oldBox : newBox} anchorStroke="#007bff" anchorFill="#fff" anchorSize={10} borderStroke="#007bff" borderDash={[6, 2]} />
+                        <Rect ref={selectionRectRef} {...selectionBox} fill="rgba(0, 123, 255, 0.2)" stroke="rgba(0, 123, 255, 0.6)" strokeWidth={1} listening={false} />
+                        {isDrawing && currentRect && <Rect x={currentRect.x} y={currentRect.y} width={currentRect.width} height={currentRect.height} fill="rgba(0, 255, 0, 0.3)" stroke="green" strokeWidth={1} listening={false} />}
+                        {isDrawing && currentPoints.length > 0 && <Line points={currentPoints} stroke="blue" strokeWidth={2} dash={[5, 5]} listening={false} />}
+                    </Layer>
+                </Stage>
+            )}
         </div>
     );
 });

@@ -3,18 +3,17 @@ import React, { useRef, useEffect } from 'react';
 import { Image as KonvaImage, Transformer, Text, Line, Rect, Group } from 'react-konva';
 import useImage from 'use-image';
 import { APDObject, isSymbol, isRectTool, isLineTool, isCrane } from '../../types/index';
-import CraneObject from '../canvas/CraneObject'; // Importerad krankomponent
+import CraneObject from '../canvas/CraneObject';
 
 interface DraggableObjectProps {
     obj: APDObject;
     isSelected: boolean;
     onSelect: (e: any) => void;
     onChange: (attrs: Partial<APDObject>, immediate: boolean) => void;
-    onTextDblClick: () => void;
     isDrawing: boolean;
 }
 
-const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSelect, onChange, onTextDblClick, isDrawing }) => {
+const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSelect, onChange, isDrawing }) => {
     const shapeRef = useRef<any>();
     const trRef = useRef<any>();
 
@@ -49,11 +48,9 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSe
         };
 
         if (isCrane(obj)) {
-            // For the crane, scaling should only affect the arm length.
-            // The original arm length is obj.width.
             const newArmLength = Math.max(20, (obj.width || 100) * scaleX);
             attrs.width = newArmLength;
-            attrs.radius = newArmLength * 0.8; // Update radius based on new arm length
+            attrs.radius = newArmLength * 0.8; 
         } else {
             attrs.width = Math.max(5, node.width() * scaleX);
             attrs.height = Math.max(5, node.height() * scaleY);
@@ -61,7 +58,6 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSe
 
         onChange(attrs, true);
     };
-
 
     const renderObject = () => {
         const commonProps = {
@@ -76,6 +72,7 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSe
             onTap: onSelect,
             onDragEnd: handleDragEnd,
             onTransformEnd: handleTransformEnd,
+            visible: obj.visible !== false,
         };
 
         if (isCrane(obj)) {
@@ -83,72 +80,16 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSe
         }
 
         if (isSymbol(obj.type)) {
-            return <KonvaImage {...commonProps} ref={shapeRef} image={image} width={obj.width} height={obj.height} onDblClick={onTextDblClick} onDblTap={onTextDblClick} />;
+            return <KonvaImage {...commonProps} ref={shapeRef} image={image} width={obj.width} height={obj.height} />;
         }
 
         if (isRectTool(obj.type)) {
-            if (obj.type === 'text') {
-                return (
-                    <Group
-                        {...commonProps}
-                        ref={shapeRef}
-                        width={obj.width}
-                        height={obj.height}
-                        onDblClick={onTextDblClick}
-                        onDblTap={onTextDblClick}
-                    >
-                        <Rect
-                            width={obj.width}
-                            height={obj.height}
-                            fill="rgba(255, 255, 255, 0.9)"
-                            stroke="#000"
-                            strokeWidth={0.5}
-                            listening={false}
-                        />
-                        <Text
-                            text={obj.text}
-                            fontSize={obj.fontSize}
-                            fontFamily={obj.fontFamily}
-                            fill={obj.fill}
-                            width={obj.width}
-                            height={obj.height}
-                            padding={obj.padding}
-                            align={obj.align}
-                            verticalAlign="middle"
-                            listening={false}
-                        />
-                    </Group>
-                );
-            } else if (obj.type === 'schakt') {
-                return (
-                    <Rect
-                        {...commonProps}
-                        ref={shapeRef}
-                        width={obj.width}
-                        height={obj.height}
-                        fill={obj.fill}
-                        stroke={obj.stroke}
-                        strokeWidth={obj.strokeWidth}
-                    />
-                );
-            }
+            // The only remaining rect tool is 'schakt'
+            return <Rect {...commonProps} ref={shapeRef} width={obj.width} height={obj.height} fill={obj.fill} stroke={obj.stroke} strokeWidth={obj.strokeWidth} />;
         }
 
         if (isLineTool(obj.type)) {
-            return (
-                <Line
-                    {...commonProps}
-                    onTransformEnd={undefined}
-                    ref={shapeRef}
-                    points={obj.points}
-                    stroke={obj.stroke || '#000000'}
-                    strokeWidth={obj.strokeWidth || 2}
-                    dash={obj.dash}
-                    tension={obj.type === 'pen' ? 0.5 : 0}
-                    lineCap="round"
-                    lineJoin="round"
-                />
-            );
+            return <Line {...commonProps} onTransformEnd={undefined} ref={shapeRef} points={obj.points} stroke={obj.stroke || '#000000'} strokeWidth={obj.strokeWidth || 2} dash={obj.dash} tension={obj.type === 'pen' ? 0.5 : 0} lineCap="round" lineJoin="round" />;
         }
 
         return null;
@@ -160,13 +101,7 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSe
             {isSelected && (
                 <Transformer
                     ref={trRef}
-                    boundBoxFunc={(oldBox, newBox) => {
-                        if (newBox.width < 10) {
-                            return oldBox;
-                        }
-                        return newBox;
-                    }}
-                    // For crane: intuitive resize anchors for arm length, plus full rotation
+                    boundBoxFunc={(oldBox, newBox) => newBox.width < 10 ? oldBox : newBox}
                     enabledAnchors={isCrane(obj) ? ['middle-left', 'middle-right'] : undefined}
                     rotateAnchorOffset={isCrane(obj) ? 30 : undefined}
                 />

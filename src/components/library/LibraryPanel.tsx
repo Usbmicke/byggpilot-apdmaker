@@ -18,19 +18,15 @@ interface DraggableLibraryItemProps {
 const DraggableLibraryItem: React.FC<DraggableLibraryItemProps> = ({ item, onClick, isSelected }) => {
     const isDrawingTool = isLineTool(item.type) || isRectTool(item.type);
 
-    const [{ isDragging }, drag, preview] = useDrag(() => ({
+    const [, drag] = useDrag(() => ({
         type: ItemTypes.LIBRARY_ITEM,
         item: item,
         canDrag: !isDrawingTool,
-        collect: (monitor) => ({
-            isDragging: !!monitor.isDragging(),
-        }),
+        collect: (monitor) => ({ isDragging: !!monitor.isDragging() }),
     }));
 
     const handleClick = () => {
-        if (isDrawingTool) {
-            onClick(item);
-        }
+        onClick(item);
     };
 
     const title = isDrawingTool
@@ -44,7 +40,6 @@ const DraggableLibraryItem: React.FC<DraggableLibraryItemProps> = ({ item, onCli
             ref={drag}
             onClick={handleClick}
             className={`flex items-center p-3 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors border shadow-sm ${isDrawingTool ? 'cursor-pointer' : 'cursor-grab'} ${selectedClass}`}
-            style={{ opacity: isDragging ? 0.4 : 1 }}
             title={title}
         >
             <div className="w-8 h-8 mr-3 flex items-center justify-center text-slate-400 bg-slate-900 rounded-md flex-shrink-0 pointer-events-none select-none">
@@ -103,16 +98,17 @@ const LibraryPanel: React.FC<LibraryPanelProps> = ({ isOpen, selectedTool, onSel
             onSelectTool(null); // Deselect if clicking the same tool
         } else {
             onSelectTool(item);
+            const isDrawingTool = isLineTool(item.type) || isRectTool(item.type);
+            if (isDrawingTool) {
+                toast.success(`Ritverktyg '${item.name}' är aktivt. Tryck Esc för att avbryta.`, {
+                    id: 'tool-toast',
+                    duration: 5000
+                });
+            }
         }
     };
 
-    useEffect(() => {
-        if (selectedTool) {
-            toast.loading(`Ritverktyg '${selectedTool.name}' är aktivt.`, { id: 'tool-toast', duration: Infinity });
-        } else {
-            toast.dismiss('tool-toast');
-        }
-    }, [selectedTool]);
+    // Remove the toast effect from here, it will be handled globally in App.tsx
 
     return (
         <aside

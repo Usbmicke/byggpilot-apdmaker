@@ -8,6 +8,12 @@ body {
     touch-action: none;
 }
 
+@layer base {
+  body.drawing-cursor, body.drawing-cursor * {
+    cursor: crosshair !important;
+  }
+}
+
 @keyframes shimmer {
   0% {
     transform: translateX(-100%);

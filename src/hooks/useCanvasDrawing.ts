@@ -47,15 +47,28 @@ export const useCanvasDrawing = ({
                 });
             }
         } else if (isLineTool(selectedTool.type) && currentPoints.length >= 4) {
-            const pointsToSave = [...currentPoints];
-            const minX = Math.min(...pointsToSave.filter((_, i) => i % 2 === 0));
-            const minY = Math.min(...pointsToSave.filter((_, i) => i % 2 !== 0));
-            const relativePoints = pointsToSave.map((val, i) => i % 2 === 0 ? val - minX : val - minY);
+            const xCoords = currentPoints.filter((_, i) => i % 2 === 0);
+            const yCoords = currentPoints.filter((_, i) => i % 2 !== 0);
 
-            addObject(selectedTool, { x: minX, y: minY }, { 
-                ...selectedTool.initialProps,
-                points: relativePoints,
-            });
+            const minX = Math.min(...xCoords);
+            const minY = Math.min(...yCoords);
+            const maxX = Math.max(...xCoords);
+            const maxY = Math.max(...yCoords);
+            
+            const width = maxX - minX;
+            const height = maxY - minY;
+
+            if (width > 2 && height > 2) {
+                // --- CRITICAL FIX: Make points relative to the top-left corner ---
+                const relativePoints = currentPoints.map((val, i) => i % 2 === 0 ? val - minX : val - minY);
+
+                addObject(selectedTool, { x: minX, y: minY }, { 
+                    ...selectedTool.initialProps,
+                    points: relativePoints, // Use relative points
+                    width: width,        
+                    height: height,      
+                });
+            }
         }
 
         setIsDrawing(false);
@@ -92,7 +105,7 @@ export const useCanvasDrawing = ({
                 setCurrentPoints(prev => [...prev, pos.x, pos.y]);
             }
         }
-    }, [selectedTool, isDrawing, getRelativePointerPosition, stageRef, finishDrawing, addObject, setSelectedTool]);
+    }, [selectedTool, isDrawing, getRelativePointerPosition, stageRef, finishDrawing]);
 
     const handleMouseMove = useCallback(() => {
         if (!isDrawing || !selectedTool) return;

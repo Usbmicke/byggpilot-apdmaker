@@ -3,7 +3,7 @@ import React, { useState, useMemo, ChangeEvent } from 'react';
 import { APDObject, CustomLegendItem, ProjectInfo } from '../../types/index';
 import { findIcon } from '../../utils/findIcon';
 
-// --- Sub-components for better structure and performance ---
+// --- Sub-components ---
 
 const ProjectInfoForm = React.memo(({ projectInfo, onInfoChange }: { projectInfo: ProjectInfo, onInfoChange: (e: ChangeEvent<HTMLInputElement>) => void }) => (
     <div className="space-y-3 mb-6">
@@ -16,7 +16,6 @@ const ProjectInfoForm = React.memo(({ projectInfo, onInfoChange }: { projectInfo
                     type="text"
                     name={key}
                     id={key}
-                    // **Fix 1.3:** Ensure value is never undefined to prevent uncontrolled component warning.
                     value={projectInfo[key as keyof ProjectInfo] || ''}
                     onChange={onInfoChange}
                     className="mt-1 p-2 bg-slate-700 border border-slate-600 rounded-lg text-sm w-full text-slate-200 placeholder:text-slate-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
@@ -28,58 +27,25 @@ const ProjectInfoForm = React.memo(({ projectInfo, onInfoChange }: { projectInfo
 
 const ObjectRow = React.memo(({
     group,
-    groupId,
+    count,
     onRemove,
-    onUpdate
 }: { 
-    group: APDObject, 
-    groupId: string, 
-    onRemove: (id: string) => void, 
-    onUpdate: (id: string, newQuantity: number) => void 
+    group: { name: string; type: string; ids: string[]; iconUrl?: string }, 
+    count: number, 
+    onRemove: (ids: string[]) => void, 
 }) => {
-    // **Fix:** State is now controlled directly by parent, preventing sync issues.
-    const [quantity, setQuantity] = useState(group.quantity.toString());
-
-    React.useEffect(() => {
-        setQuantity(group.quantity.toString());
-    }, [group.quantity]);
-
-    const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = e.target.value;
-        setQuantity(val); // Allow temporary invalid state like empty string
-        const num = parseInt(val, 10);
-        if (!isNaN(num) && num > 0) {
-            onUpdate(groupId, num);
-        }
-    };
-
-    const handleBlur = () => {
-        // If the input is empty or invalid on blur, revert to the last valid quantity.
-        if (quantity === '' || parseInt(quantity, 10) <= 0) {
-            setQuantity(group.quantity.toString());
-        }
-    };
-
     return (
         <div className="flex items-center justify-between p-2 bg-slate-800 rounded-lg border border-slate-700 shadow-sm">
             <div className="flex items-center min-w-0">
-                <div className="w-6 h-6 mr-3 text-slate-400 flex-shrink-0">{findIcon(group.type)}</div>
-                {/* **Fix 1.2:** Correctly access nested item.name property. */}
-                <span className="text-sm font-medium text-slate-300 truncate" title={group.item?.name || 'Okänt objekt'}>{group.item?.name || 'Okänt objekt'}</span>
+                <div className="w-6 h-6 mr-3 text-slate-400 flex-shrink-0">{findIcon(group.type, group.iconUrl)}</div>
+                <span className="text-sm font-medium text-slate-300 truncate" title={group.name}>{group.name}</span>
             </div>
             <div className="flex items-center">
-                <input
-                    type="number"
-                    min="1"
-                    value={quantity}
-                    onChange={handleQuantityChange}
-                    onBlur={handleBlur}
-                    className="w-16 p-1 text-sm bg-slate-700 border border-slate-600 rounded-md text-slate-200 text-center"
-                />
+                <span className="w-12 p-1 text-sm bg-slate-700 border border-slate-600 rounded-md text-slate-200 text-center font-mono">{count}</span>
                 <button
-                    onClick={() => onRemove(groupId)}
+                    onClick={() => onRemove(group.ids)}
                     className="ml-2 p-1 text-red-500 hover:text-red-400 rounded-full hover:bg-slate-700"
-                    aria-label={`Ta bort alla ${group.item?.name || 'objekt'}`}
+                    aria-label={`Ta bort alla ${group.name}`}
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                 </button>
@@ -95,7 +61,7 @@ interface LegendPanelProps {
     setProjectInfo: (info: ProjectInfo) => void;
     objects: APDObject[];
     onRemoveObject: (ids: string[]) => void;
-    onUpdateObject: (groupId: string, newQuantity: number) => void;
+    onUpdateObject: (groupId: string, newQuantity: number) => void; // This prop is no longer used but kept for interface compatibility if needed elsewhere
     customItems: CustomLegendItem[];
     setCustomItems: React.Dispatch<React.SetStateAction<CustomLegendItem[]>>;
 }
@@ -103,39 +69,34 @@ interface LegendPanelProps {
 // --- Main Component ---
 
 const LegendPanel: React.FC<LegendPanelProps> = ({
-    isOpen, projectInfo, setProjectInfo, objects, onRemoveObject, onUpdateObject, customItems, setCustomItems
+    isOpen, projectInfo, setProjectInfo, objects, onRemoveObject
 }) => {
 
-    const aggregatedSymbols = useMemo(() => {
-        const symbolMap = new Map<string, APDObject>();
-        objects.forEach(obj => {
-            // **Robust Grouping:** Use item.id for library items, or object's own type for generated items.
-            const key = obj.item?.id || obj.type;
-            if (!key) return; // Ignore objects without a key.
+    // FIX C-2: Replaced unstable aggregation logic with a simple, robust version.
+    const aggregatedObjects = useMemo(() => {
+        const objectGroups = new Map<string, { name: string, type: string, ids: string[], iconUrl?: string }>();
 
-            const existing = symbolMap.get(key);
-            if (existing) {
-                // Ensure quantity is a number before adding.
-                existing.quantity = (existing.quantity || 0) + (obj.quantity || 1);
-            } else {
-                // Create a new entry, ensuring a valid item structure.
-                symbolMap.set(key, { 
-                    ...obj, 
-                    item: obj.item || { name: obj.type, id: obj.type, type: obj.type },
-                    quantity: obj.quantity || 1
-                });
+        objects.forEach(obj => {
+            const key = obj.item?.id || obj.type;
+            if (!key) return;
+
+            let group = objectGroups.get(key);
+            if (!group) {
+                group = {
+                    name: obj.item?.name || obj.type,
+                    type: obj.type,
+                    ids: [],
+                    iconUrl: obj.item?.iconUrl
+                };
+                objectGroups.set(key, group);
             }
+            group.ids.push(obj.id);
         });
-        return Array.from(symbolMap.entries());
+
+        return Array.from(objectGroups.values());
     }, [objects]);
 
-    const handleRemoveGroup = (groupId: string) => {
-        const idsToRemove = objects.filter(obj => (obj.item?.id || obj.type) === groupId).map(obj => obj.id);
-        onRemoveObject(idsToRemove);
-    };
-
     const handleInfoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        // This ensures controlled components receive defined values.
         setProjectInfo({ ...projectInfo, [e.target.name]: e.target.value || '' });
     }
 
@@ -153,13 +114,12 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
                 <h2 className="text-xl font-bold border-y border-slate-700 py-2 my-4 text-slate-100 whitespace-nowrap">Objektförteckning</h2>
 
                 <div className="space-y-2 mb-6">
-                    {aggregatedSymbols.map(([groupId, group]) => (
+                    {aggregatedObjects.map((group) => (
                         <ObjectRow
-                            key={groupId}
-                            groupId={groupId}
+                            key={group.type} // Use type as key, assuming unique enough for this list
                             group={group}
-                            onRemove={handleRemoveGroup}
-                            onUpdate={onUpdateObject} // Parent already handles the logic
+                            count={group.ids.length}
+                            onRemove={onRemoveObject}
                         />
                     ))}
                 </div>

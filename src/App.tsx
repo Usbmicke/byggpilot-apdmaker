@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import toast, { Toaster } from 'react-hot-toast';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { APDObject, LibraryItem, ProjectInfo, CustomLegendItem, isCrane } from './types';
+import { APDObject, LibraryItem, ProjectInfo, CustomLegendItem, isCrane, isLineTool, isRectTool } from './types';
 import { defaultProjectInfo, defaultCustomLegend } from './utils/defaults';
 import { useHistory } from './hooks/useHistory';
 import Header from './components/header/Header';
@@ -19,7 +19,7 @@ import { exportPlan } from './lib/exportUtils';
 const App: React.FC = () => {
     const stageRef = useRef<any>(null);
     const canvasPanelRef = useRef<CanvasPanelRef>(null);
-    const threeDViewRef = useRef<ThreeDViewHandles>(null); // Ref för 3D-vyn
+    const threeDViewRef = useRef<ThreeDViewHandles>(null);
 
     const { state: objects, setState: setObjects, undo, redo, canUndo, canRedo, resetHistory } = useHistory<APDObject[]>([]);
 
@@ -40,6 +40,21 @@ const App: React.FC = () => {
             return () => URL.revokeObjectURL(backgroundUrl);
         }
     }, [background?.url]);
+
+    // FIX UX-2: Global cursor change for drawing tools
+    useEffect(() => {
+        const isDrawing = selectedTool && (isLineTool(selectedTool.type) || isRectTool(selectedTool.type));
+        if (isDrawing) {
+            document.body.classList.add('drawing-cursor');
+        } else {
+            document.body.classList.remove('drawing-cursor');
+        }
+
+        // Cleanup function
+        return () => {
+            document.body.classList.remove('drawing-cursor');
+        };
+    }, [selectedTool]);
 
     const removeObjects = useCallback((ids: string[]) => {
         if (ids.length === 0) return;
@@ -130,7 +145,6 @@ const App: React.FC = () => {
         toast.success('Projektet har rensats!');
     };
 
-    // --- EXPORTFUNKTIONER ---
     const handleExport = async (format: 'jpeg' | 'pdf', imagePromise: Promise<{ url: string; width: number; height: number; } | null>) => {
         const toastId = toast.loading('Förbereder export...');
         try {

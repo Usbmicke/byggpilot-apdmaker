@@ -12,8 +12,8 @@ interface HeaderProps {
     toggleLegend: () => void;
     show3D: boolean;
     setShow3D: (show: boolean) => void;
-    onExport2D: (format: 'jpeg' | 'pdf') => void; // NY PROP
-    onExport3D: (format: 'jpeg' | 'pdf') => void; // NY PROP
+    onExport2D: (format: 'jpeg' | 'pdf') => void;
+    onExport3D: (format: 'jpeg' | 'pdf') => void;
     backgroundIsLoaded: boolean;
 }
 
@@ -28,7 +28,7 @@ const Header: React.FC<HeaderProps> = ({
     const handleFileInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) handleFile(file);
-        event.target.value = ''; // Rensa för att tillåta samma fil igen
+        event.target.value = '';
     };
 
     const handleExport = (format: 'jpeg' | 'pdf') => {
@@ -53,8 +53,10 @@ const Header: React.FC<HeaderProps> = ({
     return (
         <header className="bg-slate-800 border-b border-slate-700 p-2 sm:p-3 flex items-center justify-between z-30 relative shadow-md h-[72px]">
              <div className="flex items-center gap-2 sm:gap-3">
-                <button onClick={toggleLibrary} disabled={!backgroundIsLoaded} className="p-2 rounded-md hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed" title="Visa/Dölj Symbol-bibliotek">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h8m-8 6h16" /></svg>
+                {/* FIX UX-1: Added text label for clarity */}
+                <button onClick={toggleLibrary} disabled={!backgroundIsLoaded} className="p-2 rounded-md hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2" title="Visa/Dölj Symbol-bibliotek">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h8m-8 6h16" /></svg>
+                    <span className="hidden sm:inline font-semibold">Bibliotek</span>
                 </button>
                 <img src="/assets/ikoner/Byggpilotlogga.png" alt="ByggPilot Logotyp" className="h-9 sm:h-10" />
                 <span className="text-lg sm:text-xl font-bold text-slate-100 whitespace-nowrap hidden md:inline">ByggPilot APD</span>
@@ -94,8 +96,10 @@ const Header: React.FC<HeaderProps> = ({
                     <span className="text hidden md:inline ml-2">Rensa Allt</span>
                 </button>
                 
-                <button onClick={toggleLegend} disabled={!backgroundIsLoaded} className="p-2 rounded-md hover:bg-slate-700 text-slate-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed hidden sm:flex" title="Visa/Dölj Projektinformation och Förteckning">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
+                {/* FIX UX-1: Added text label for clarity */}
+                <button onClick={toggleLegend} disabled={!backgroundIsLoaded} className="p-2 rounded-md hover:bg-slate-700 text-slate-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed hidden sm:flex items-center gap-2" title="Visa/Dölj Projektinformation och Förteckning">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
+                    <span className="hidden sm:inline font-semibold">Info & Lista</span>
                 </button>
             </div>
 

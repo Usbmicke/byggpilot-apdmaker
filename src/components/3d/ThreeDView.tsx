@@ -1,10 +1,9 @@
 
 import React, { Suspense, useMemo, useRef, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
-import { Sky, OrbitControls, Grid, Plane, GizmoHelper, GizmoViewport, useTexture } from '@react-three/drei';
+import { Sky, OrbitControls, Grid, Plane, GizmoHelper, GizmoViewport, useTexture, TransformControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { APDObject, LibraryCategory, LibraryItem, isBuilding, isSchakt, isSymbol, isFence, isCrane, isGate } from '../../types';
-import { TransformControls } from 'three-stdlib';
 import { SCALE_FACTOR } from '../../utils/coordinateUtils';
 import {
     CraneObject,
@@ -39,8 +38,8 @@ const get2DAttributesFrom3D = (obj3d: THREE.Object3D, bgWidth: number, bgHeight:
     return { x: newX, y: newY, rotation, ...extra };
 };
 
-const Controls = ({ selectedId, objects, onObjectChange, onSnapshotRequest, background }) => {
-    const { camera, gl, scene } = useThree();
+const Controls = ({ selectedId, objects, onObjectChange, background }) => {
+    const { scene } = useThree();
     const orbitRef = useRef<any>();
     const transformRef = useRef<any>();
 
@@ -79,7 +78,7 @@ const Controls = ({ selectedId, objects, onObjectChange, onSnapshotRequest, back
 
     return (
         <>
-            <TransformControls ref={transformRef} onMouseUp={handleObjectChange} onMouseDown={() => orbitRef.current.enabled = false} onMouseUpCapture={() => orbitRef.current.enabled = true} />
+            <TransformControls ref={transformRef} onMouseUp={handleObjectChange} onMouseDown={() => {if(orbitRef.current) orbitRef.current.enabled = false}} onMouseUpCapture={() => {if(orbitRef.current) orbitRef.current.enabled = true}} />
             <OrbitControls ref={orbitRef} makeDefault target={[0, 0, 0]} />
         </>
     );
@@ -92,7 +91,7 @@ const PolygonObject = ({ obj }: { obj: APDObject }) => {
         const shape = new THREE.Shape(shapePoints);
         const extrudeSettings = { depth: obj.height3d || 2.5, bevelEnabled: false };
         return new THREE.ExtrudeGeometry(shape, extrudeSettings);
-    }, [obj]);
+    }, [obj.points, obj.height3d]);
 
     return (
         <mesh geometry={geometry} castShadow receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
@@ -108,25 +107,17 @@ const ThreeDObject = ({ obj, item, background, onSelect }) => {
     const rotationY = -THREE.MathUtils.degToRad(obj.rotation || 0);
 
     const renderSpecificObject = () => {
-        // ZONES / GROUND MARKINGS
         if (obj.type.startsWith('zone_') || isSchakt(obj)) return <GroundMarkingObject obj={obj} />;
-        
-        // BUILDINGS & STRUCTURES
         if (isBuilding(obj)) return <PolygonObject obj={obj} />;
         if (isCrane(obj)) return <CraneObject obj={obj} />;
         if (obj.type === 'shed' || obj.type === 'office') return <SiteShedObject obj={obj} />;
         if (obj.type.includes('container')) return <ContainerObject obj={obj} />;
         if (obj.type === 'saw_shed' || obj.type === 'rebar_station') return <GenericWorkshopObject obj={obj} />;
         if (obj.type === 'light_mast') return <LightingMastObject />;
-
-        // FENCES
         if (isFence(obj)) return <FenceObject obj={obj} />;
         if (isGate(obj)) return <GateObject obj={obj} />;
-
-        // SIGNS & SYMBOLS (Fallback)
         if (isSymbol(obj.type) && item?.iconUrl) return <SignObject item={item} />;
-
-        return null; // Render nothing if type is unknown
+        return null;
     };
 
     return (
@@ -160,7 +151,7 @@ const SceneContent = (props: Omit<ThreeDViewProps, 'setIsLocked'>) => {
                     <ThreeDObject key={obj.id} obj={obj} item={libraryItems.get(obj.type)} background={background} onSelect={onSelect} />
                 ))}
             </Suspense>
-            {!isLocked && <Controls selectedId={selectedId} objects={objects} onObjectChange={onObjectChange} onSnapshotRequest={onSnapshotRequest} background={background} />}
+            {!isLocked && <Controls selectedId={selectedId} objects={objects} onObjectChange={onObjectChange} background={background} />}
             <Grid args={[400, 400]} position={[0, -0.02, 0]} infiniteGrid fadeDistance={300} fadeStrength={5} />
             <GizmoHelper alignment="bottom-right" margin={[80, 80]}>
                 <GizmoViewport axisColors={['#ff4040', '#40ff40', '#4040ff']} labelColor="white" />

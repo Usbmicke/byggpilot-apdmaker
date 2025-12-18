@@ -39,7 +39,7 @@ export const useCanvasDrawing = ({
             const finalWidth = Math.abs(currentRect.width);
             const finalHeight = Math.abs(currentRect.height);
 
-            if (finalWidth > 5 && finalHeight > 5) {
+            if (finalWidth > 2 && finalHeight > 2) {
                 addObject(selectedTool, { x: finalX, y: finalY }, {
                     ...selectedTool.initialProps,
                     width: finalWidth,
@@ -47,24 +47,24 @@ export const useCanvasDrawing = ({
                 });
             }
         } else if (isLineTool(selectedTool.type) && currentPoints.length >= 4) {
-            const xCoords = currentPoints.filter((_, i) => i % 2 === 0);
-            const yCoords = currentPoints.filter((_, i) => i % 2 !== 0);
-
-            const minX = Math.min(...xCoords);
-            const minY = Math.min(...yCoords);
-            const maxX = Math.max(...xCoords);
-            const maxY = Math.max(...yCoords);
+            // B-1 & UX-2 Fix: Convert points to be relative to the object's origin (the first point)
+            const startX = currentPoints[0];
+            const startY = currentPoints[1];
             
-            const width = maxX - minX;
-            const height = maxY - minY;
+            const relativePoints = currentPoints.map((val, i) => 
+                i % 2 === 0 ? val - startX : val - startY
+            );
 
-            if (width > 2 && height > 2) {
-                // --- CRITICAL FIX: Make points relative to the top-left corner ---
-                const relativePoints = currentPoints.map((val, i) => i % 2 === 0 ? val - minX : val - minY);
+            // Calculate width and height from the relative points
+            const xCoords = relativePoints.filter((_, i) => i % 2 === 0);
+            const yCoords = relativePoints.filter((_, i) => i % 2 !== 0);
+            const width = Math.max(...xCoords) - Math.min(...xCoords);
+            const height = Math.max(...yCoords) - Math.min(...yCoords);
 
-                addObject(selectedTool, { x: minX, y: minY }, { 
+            if (width > 2 || height > 2) {
+                addObject(selectedTool, { x: startX, y: startY }, { 
                     ...selectedTool.initialProps,
-                    points: relativePoints, // Use relative points
+                    points: relativePoints, 
                     width: width,        
                     height: height,      
                 });
@@ -81,7 +81,7 @@ export const useCanvasDrawing = ({
     const handleMouseDown = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
         if (!selectedTool || e.target !== stageRef.current) return;
 
-        if (e.evt.button === 2) { // Right click
+        if (e.evt.button === 2) { 
             e.evt.preventDefault();
             if (isDrawing && isLineTool(selectedTool.type)) {
                 finishDrawing();
@@ -89,7 +89,7 @@ export const useCanvasDrawing = ({
             return;
         }
 
-        if (e.evt.button !== 0) return; // Not a left click
+        if (e.evt.button !== 0) return;
 
         const pos = getRelativePointerPosition();
 

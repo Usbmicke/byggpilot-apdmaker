@@ -1,18 +1,30 @@
 
 // Allmänna typer
-export type DrawingTool = 'walkway' | 'fence' | 'construction-traffic' | 'pen' | 'text' | 'schakt' | 'crane' | 'building' | 'zone' | 'line' | 'brandslackare' | 'atervinning' | 'forsta-hjalpen' | 'wc' | 'brandfarlig-vara' | 'gasflaskor' | 'ogonskadeskydd' | 'varselstack';
+export type DrawingTool = 'walkway' | 'fence' | 'construction-traffic' | 'pen' | 'text' | 'schakt' | 'building' | 'zone' | 'line';
 
 // Typ-vakter (Type Guards)
-export const isLineTool = (tool: string): tool is 'walkway' | 'fence' | 'construction-traffic' | 'pen' =>
+// Dessa funktioner avgör om ett verktyg ska starta ett specialritläge (linje eller rektangel) istället för att bara släppas.
+export const isLineTool = (tool: string): tool is 'walkway' | 'fence' | 'construction-traffic' | 'pen' | 'building' =>
     ['walkway', 'fence', 'construction-traffic', 'pen', 'building'].includes(tool);
 
-export const isRectTool = (tool: string): tool is 'text' | 'schakt' => ['text', 'schakt'].includes(tool);
+// isRectTool ska ENDAST innehålla verktyg som ritas ut som en rektangel av användaren.
+// Färdiga objekt som containrar ska INTE vara med här.
+export const isRectTool = (tool: string): tool is 'text' | 'schakt' => 
+    ['text', 'schakt'].includes(tool);
 
-// KORRIGERING: isSymbol tar nu en sträng (type) som argument för att fungera med LibraryItem.
+
+// isSymbol avgör om ett objekt ska renderas som en enkel ikon i 3D-vyn.
 export const isSymbol = (type: string): boolean => {
     if (!type) return false;
-    const knownNonSymbolTypes: string[] = ['walkway', 'fence', 'construction-traffic', 'pen', 'text', 'schakt', 'crane', 'building', 'zone', 'line', 'gate'];
-    return !knownNonSymbolTypes.includes(type) && !type.startsWith('zone_') && !type.includes('container') && type !== 'shed' && type !== 'office' && type !== 'light_mast' && type !== 'saw_shed' && type !== 'rebar_station';
+    // Listan innehåller nu bara de objekt som INTE ska vara symboler.
+    const nonSymbolTypes: string[] = [
+        'walkway', 'fence', 'construction-traffic', 'pen', 'building', 'zone', 'line', 'gate', 'crane', 
+        'container-10', 'container-30', 'tippcontainer', 'tippcontainer-stangd', 
+        'bygg-bod', 'kontor', // SiteShedObject
+        'belysningsmast', // LightingMastObject
+        'såg-bod', 'armerings-station' // GenericWorkshopObject
+    ];
+    return !nonSymbolTypes.includes(type) && !type.startsWith('zone_');
 };
 
 export const isSchakt = (obj: APDObject): obj is APDObject & { type: 'schakt' } => obj.type === 'schakt';

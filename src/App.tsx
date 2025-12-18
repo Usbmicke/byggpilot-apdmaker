@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import toast, { Toaster } from 'react-hot-toast';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import { pdfjs } from 'react-pdf';
 import { APDObject, LibraryItem, ProjectInfo, CustomLegendItem, isCrane, isLineTool, isRectTool } from './types';
 import { defaultProjectInfo, defaultCustomLegend } from './utils/defaults';
 import { useHistory } from './hooks/useHistory';
@@ -15,6 +16,12 @@ import ThreeDView, { ThreeDViewHandles } from './components/3d/ThreeDView';
 import { LIBRARY_CATEGORIES } from './constants/libraryItems';
 import { handlePDF } from './utils/pdfHandler';
 import { exportPlan } from './lib/exportUtils';
+
+// Configure PDF.js worker
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+    'pdfjs-dist/build/pdf.worker.min.js',
+    import.meta.url,
+).toString();
 
 const App: React.FC = () => {
     const stageRef = useRef<any>(null);

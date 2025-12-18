@@ -29,14 +29,14 @@ const VandplanIcon = () => <SvgIcon svg={VandplanSVG} />;
 export const logistikCategory: { name: string; items: LibraryItem[] } = {
     name: "Logistik",
     items: [
-        { type: 'container-10', name: 'Container 10m³', icon: <Container10Icon />, iconUrl: createIcon(ContainerSVG10) },
-        { type: 'container-30', name: 'Container 30m³', icon: <Container30Icon />, iconUrl: createIcon(ContainerSVG30) },
-        { type: 'tippcontainer', name: 'Tippcontainer (Öppen)', icon: <TippContainerIcon />, iconUrl: createIcon(TippContainerSVG) },
-        { type: 'tippcontainer-stangd', name: 'Tippcontainer (Stängd)', icon: <TippContainerStangdIcon />, iconUrl: createIcon(TippContainerStangdSVG) },
-        { type: 'upplag', name: 'Materialupplag', icon: <UpplagIcon />, iconUrl: createIcon(UpplagSVG) },
-        { type: 'lossning', name: 'Lossningszon', icon: <LossningIcon />, iconUrl: createIcon(LossningSVG) },
-        { type: 'vandplan', name: 'Vändplan', icon: <VandplanIcon />, iconUrl: createIcon(VandplanSVG) },
-        { type: 'infart', name: 'Infart', icon: <InfartIcon />, iconUrl: createIcon(InfartSVG) },
-        { type: 'parkering', name: 'Parkering', icon: <ParkeringIcon />, iconUrl: createIcon(ParkeringSVG) },
+        { type: 'container-10', name: 'Container 10m³', icon: <Container10Icon />, iconUrl: createIcon(ContainerSVG10), initialProps: { width: 100, height: 56, fill: '#76FF03', stroke: '#000', strokeWidth: 2 } },
+        { type: 'container-30', name: 'Container 30m³', icon: <Container30Icon />, iconUrl: createIcon(ContainerSVG30), initialProps: { width: 120, height: 48, fill: '#00E5FF', stroke: '#000', strokeWidth: 2 } },
+        { type: 'tippcontainer', name: 'Tippcontainer (Öppen)', icon: <TippContainerIcon />, iconUrl: createIcon(TippContainerSVG), initialProps: { width: 90, height: 60, fill: '#2962FF', stroke: '#000', strokeWidth: 2 } },
+        { type: 'tippcontainer-stangd', name: 'Tippcontainer (Stängd)', icon: <TippContainerStangdIcon />, iconUrl: createIcon(TippContainerStangdSVG), initialProps: { width: 90, height: 60, fill: '#2962FF', stroke: '#000', strokeWidth: 2 } },
+        { type: 'upplag', name: 'Materialupplag', icon: <UpplagIcon />, iconUrl: createIcon(UpplagSVG), initialProps: { width: 150, height: 150, fill: '#D500F9', stroke: '#fff', strokeWidth: 4 } },
+        { type: 'lossning', name: 'Lossningszon', icon: <LossningIcon />, iconUrl: createIcon(LossningSVG), initialProps: { width: 150, height: 150, fill: '#FFD600', stroke: '#000', strokeWidth: 4 } },
+        { type: 'vandplan', name: 'Vändplan', icon: <VandplanIcon />, iconUrl: createIcon(VandplanSVG), initialProps: { radius: 80, fill: '#E0E0E0', stroke: '#000', strokeWidth: 2, dash: [4, 2] } },
+        { type: 'infart', name: 'Infart', icon: <InfartIcon />, iconUrl: createIcon(InfartSVG), initialProps: { width: 120, height: 88, fill: '#00C853', stroke: '#000', strokeWidth: 2 } },
+        { type: 'parkering', name: 'Parkering', icon: <ParkeringIcon />, iconUrl: createIcon(ParkeringSVG), initialProps: { width: 120, height: 120, fill: '#2962FF', stroke: '#000', strokeWidth: 2 } },
     ]
 };

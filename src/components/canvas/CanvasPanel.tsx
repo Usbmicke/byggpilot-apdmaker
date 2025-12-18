@@ -1,6 +1,6 @@
 
-import React, { useRef, useState, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react';
-import { Stage, Layer, Image as KonvaImage, Line, Transformer, Rect, Circle } from 'react-konva';
+import React, { useRef, useState, useEffect, useCallback, forwardRef } from 'react';
+import { Stage, Layer, Image as KonvaImage, Line, Transformer, Rect } from 'react-konva';
 import useImage from 'use-image';
 import { useDrop } from 'react-dnd';
 import { NativeTypes } from 'react-dnd-html5-backend';
@@ -10,6 +10,8 @@ import DraggableObject from '../draggable/DraggableObject';
 import { useStageInteraction } from '../../hooks/useStageInteraction';
 import { useDrawing } from '../../hooks/useDrawing';
 import { useCanvasDrawing } from '../../hooks/useCanvasDrawing';
+
+const CRANE_ANCHORS = ['middle-left', 'middle-right'];
 
 const UndoRedoControls = React.memo(({ undo, redo, canUndo, canRedo }: { undo: () => void, redo: () => void, canUndo: boolean, canRedo: boolean }) => (
     <div className="absolute top-4 right-4 z-10 flex gap-2">
@@ -39,43 +41,6 @@ const DropIndicator: React.FC<{ isOver: boolean }> = ({ isOver }) => {
     return <div className="absolute inset-0 z-20 flex items-center justify-center bg-blue-900/50 border-4 border-dashed border-blue-400 rounded-lg pointer-events-none"><h2 className="text-3xl font-bold text-white">Släpp filen för att ladda upp</h2></div>;
 }
 
-// Special Transformer for Crane Objects
-const CraneTransformer = ({ selectedNode, updateObject }) => {
-    const trRef = useRef<any>();
-
-    useEffect(() => {
-        if (selectedNode && trRef.current) {
-            trRef.current.nodes([selectedNode]);
-            trRef.current.getLayer().batchDraw();
-        }
-    }, [selectedNode]);
-
-    if (!selectedNode) return null;
-
-    const handleTransformEnd = (e) => {
-        const node = e.target;
-        const scaleX = node.scaleX();
-        const initialRadius = node.attrs.initialRadius || 50; 
-        const newRadius = initialRadius * scaleX;
-        
-        updateObject(node.id(), { radius: newRadius }, true);
-        
-        node.scaleX(1);
-        node.scaleY(1);
-        node.getLayer().batchDraw();
-    };
-    
-    return (
-        <Transformer
-            ref={trRef}
-            boundBoxFunc={(oldBox, newBox) => newBox.width < 10 ? oldBox : newBox}
-            enabledAnchors={['middle-left', 'middle-right']}
-            onTransformEnd={handleTransformEnd}
-        />
-    );
-};
-
-
 interface CanvasPanelProps {
     stageRef: React.RefObject<any>;
     objects: APDObject[];
@@ -103,6 +68,7 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>((
     const containerRef = useRef<HTMLDivElement>(null);
     const [size, setSize] = useState({ width: 0, height: 0 });
     const trRef = useRef<any>(null);
+    const [isTransforming, setIsTransforming] = useState(false);
 
     const imageUrl = background?.url || '';
     const isDataUrl = imageUrl.startsWith('data:') || imageUrl.startsWith('blob:');
@@ -112,31 +78,29 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>((
 
     const { isDrawing, currentPoints, currentRect, handleMouseDown: handleDrawingMouseDown, handleMouseMove: handleDrawingMouseMove, handleMouseUp: handleDrawingMouseUp, finishDrawing, cancelDrawing } = useCanvasDrawing({ stageRef, selectedTool, addObject, setSelectedTool });
 
-    const isInteractionBlocked = isDrawing || (!!selectedTool && (isLineTool(selectedTool.type) || isRectTool(selectedTool.type)));
+    const isInteractionBlocked = isDrawing || isTransforming || (!!selectedTool && (isLineTool(selectedTool.type) || isRectTool(selectedTool.type)));
 
     const { selectionBox, selectionRectRef, handleMouseDown: handleSelectionMouseDown, handleMouseMove: handleSelectionMouseMove, handleMouseUp: handleSelectionMouseUp } = useStageInteraction({ stageRef, objects, selectedIds, setSelectedIds, checkDeselect, isInteractionBlocked });
 
-    // Manage transformers based on selection
     useEffect(() => {
-        if (!trRef.current || !stageRef.current) return;
-        
-        const selectedNodes = stageRef.current.find((node) => selectedIds.includes(node.id()));
-        const selectedCrane = selectedNodes.length === 1 && isCrane(objects.find(obj => obj.id === selectedIds[0]));
-
-        if (selectedNodes.length > 0 && !selectedCrane) {
+        if (trRef.current && stageRef.current) {
+            const selectedNodes = stageRef.current.find((node: any) => selectedIds.includes(node.id()));
             trRef.current.nodes(selectedNodes);
-        } else {
-            trRef.current.nodes([]);
-        }
-        trRef.current.getLayer()?.batchDraw();
-    }, [selectedIds, objects, stageRef]);
 
-    // UX-1: Set cursor to crosshair when a drawing tool is active
+            selectedNodes.forEach((node: any) => {
+                node.draggable(!isTransforming);
+            });
+
+            trRef.current.getLayer()?.batchDraw();
+        }
+    }, [selectedIds, isTransforming, stageRef]);
+
     useEffect(() => {
         const container = containerRef.current;
-        if (!container) return;
-        const isDrawingToolActive = selectedTool && (isLineTool(selectedTool.type) || isRectTool(selectedTool.type));
-        container.style.cursor = isDrawingToolActive ? 'crosshair' : 'default';
+        if (container) {
+            const isDrawingToolActive = selectedTool && (isLineTool(selectedTool.type) || isRectTool(selectedTool.type));
+            container.style.cursor = isDrawingToolActive ? 'crosshair' : 'default';
+        }
     }, [selectedTool]);
 
     useEffect(() => { if (containerRef.current) drop(containerRef.current); }, [drop]);
@@ -145,7 +109,9 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>((
         if (isDrawing) return;
         const id = e.target.id();
         const isShift = e.evt.shiftKey;
-        const newSelectedIds = isShift ? (selectedIds.includes(id) ? selectedIds.filter(sid => sid !== id) : [...selectedIds, id]) : (selectedIds.length === 1 && selectedIds[0] === id ? [] : [id]);
+        const newSelectedIds = isShift
+            ? (selectedIds.includes(id) ? selectedIds.filter(sid => sid !== id) : [...selectedIds, id])
+            : (selectedIds.length === 1 && selectedIds[0] === id ? [] : [id]);
         setSelectedIds(newSelectedIds);
     };
 
@@ -170,9 +136,9 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>((
     }
 
     const handleContextMenu = (e: any) => {
-        e.evt.preventDefault(); // B-2: Prevent browser context menu
+        e.evt.preventDefault();
         if (isDrawing) {
-            finishDrawing(); // Finish drawing on right-click
+            finishDrawing();
         }
     };
 
@@ -208,9 +174,46 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>((
             stage.position({ x: (size.width - background.width * scale) / 2, y: (size.height - background.height * scale) / 2 });
         }
     }, [background, bgImage, size, stageRef]);
-    
-    const selectedObject = objects.find(obj => obj.id === selectedIds[0]);
-    const isSingleCraneSelected = selectedIds.length === 1 && selectedObject && isCrane(selectedObject);
+
+    const onTransformStart = () => {
+        setIsTransforming(true);
+    };
+
+    const onTransformEnd = (e: any) => {
+        const node = e.target;
+        if (!node) return;
+        const scaleX = node.scaleX();
+        const scaleY = node.scaleY();
+        node.scaleX(1);
+        node.scaleY(1);
+
+        const obj = objects.find(o => o.id === node.id());
+        if (!obj) {
+            setIsTransforming(false);
+            return;
+        }
+
+        const attrs: Partial<APDObject> = {
+            x: node.x(),
+            y: node.y(),
+            rotation: node.rotation(),
+        };
+
+        if (isCrane(obj)) {
+            const currentRadius = obj.radius || 100;
+            const newRadius = Math.max(20, currentRadius * scaleX);
+            attrs.radius = newRadius;
+        } else {
+            attrs.width = Math.max(5, node.width() * scaleX);
+            attrs.height = Math.max(5, node.height() * scaleY);
+        }
+
+        updateObject(node.id(), attrs, true);
+        setIsTransforming(false);
+    };
+
+    const selectedObject = selectedIds.length === 1 ? objects.find(obj => obj.id === selectedIds[0]) : undefined;
+    const isSingleCraneSelected = selectedObject && isCrane(selectedObject);
 
     return (
         <div ref={containerRef} className="absolute inset-0 z-0 bg-slate-500 overflow-hidden outline-none" tabIndex={0}>
@@ -229,7 +232,7 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>((
                     onMouseMove={handleStageMouseMove}
                     onMouseUp={handleStageMouseUp}
                     onClick={checkDeselect}
-                    onContextMenu={handleContextMenu} // Added for B-2
+                    onContextMenu={handleContextMenu}
                 >
                     <Layer>
                         {bgImage && <KonvaImage image={bgImage} width={background.width} height={background.height} listening={false} />}
@@ -239,12 +242,23 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>((
                                 obj={obj}
                                 isSelected={selectedIds.includes(obj.id)}
                                 onSelect={handleObjectClick}
-                                onChange={(attrs, imm) => updateObject(obj.id, attrs, imm)}
-                                isDrawing={isDrawing}
+                                onChange={updateObject}
+                                isDrawing={isDrawing || isTransforming}
                             />
                         ))}
-                        <Transformer ref={trRef} boundBoxFunc={(oldBox, newBox) => newBox.width < 5 || newBox.height < 5 ? oldBox : newBox} anchorStroke="#007bff" anchorFill="#fff" anchorSize={10} borderStroke="#007bff" borderDash={[6, 2]} />
-                        {isSingleCraneSelected && <CraneTransformer selectedNode={stageRef.current?.findOne(`#${selectedIds[0]}`)} updateObject={updateObject} />}
+                        <Transformer
+                            ref={trRef}
+                            boundBoxFunc={(oldBox, newBox) => newBox.width < 5 || newBox.height < 5 ? oldBox : newBox}
+                            anchorStroke="#007bff"
+                            anchorFill="#fff"
+                            anchorSize={10}
+                            borderStroke="#007bff"
+                            borderDash={[6, 2]}
+                            keepRatio={true}
+                            enabledAnchors={isSingleCraneSelected ? CRANE_ANCHORS : undefined}
+                            onTransformStart={onTransformStart}
+                            onTransformEnd={onTransformEnd}
+                        />
                         <Rect ref={selectionRectRef} {...selectionBox} fill="rgba(0, 123, 255, 0.2)" stroke="rgba(0, 123, 255, 0.6)" strokeWidth={1} listening={false} />
                         {isDrawing && currentRect && <Rect x={currentRect.x} y={currentRect.y} width={currentRect.width} height={currentRect.height} fill="rgba(0, 255, 0, 0.3)" stroke="green" strokeWidth={1} listening={false} />}
                         {isDrawing && currentPoints.length > 0 && <Line points={currentPoints} stroke="blue" strokeWidth={2} dash={[5, 5]} listening={false} />}

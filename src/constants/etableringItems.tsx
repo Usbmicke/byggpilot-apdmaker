@@ -17,13 +17,15 @@ const WCIcon = () => <SvgIcon svg={WCSVG} />;
 const KontorIcon = () => <SvgIcon svg={KontorSVG} />;
 const HissIcon = () => <img src={hissImageUrl} alt="Hiss" style={{ width: '100%', height: '100%' }} />;
 
+const UNIFORM_SIZE = { width: 50, height: 50 };
+
 // --- Category Export ---
 export const etableringCategory: { name: string; items: LibraryItem[] } = {
     name: "Etablering",
     items: [
-        { type: 'bygg-bod', name: 'Bygg bod', icon: <BodIcon />, iconUrl: createIcon(BodSVG) },
-        { type: 'wc', name: 'WC', icon: <WCIcon />, iconUrl: createIcon(WCSVG) },
-        { type: 'kontor', name: 'Kontor', icon: <KontorIcon />, iconUrl: createIcon(KontorSVG) },
-        { type: 'hiss', name: 'Hiss', icon: <HissIcon />, iconUrl: hissImageUrl },
+        { type: 'bygg-bod', name: 'Bygg bod', icon: <BodIcon />, iconUrl: createIcon(BodSVG), initialProps: UNIFORM_SIZE },
+        { type: 'wc', name: 'WC', icon: <WCIcon />, iconUrl: createIcon(WCSVG), initialProps: UNIFORM_SIZE },
+        { type: 'kontor', name: 'Kontor', icon: <KontorIcon />, iconUrl: createIcon(KontorSVG), initialProps: UNIFORM_SIZE },
+        { type: 'hiss', name: 'Hiss', icon: <HissIcon />, iconUrl: hissImageUrl, initialProps: UNIFORM_SIZE },
     ]
 };

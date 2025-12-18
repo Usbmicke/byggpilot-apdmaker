@@ -5,28 +5,24 @@ import { APDObject } from '../../types';
 
 interface CraneObjectProps {
     obj: APDObject;
-    explicitWidth?: number; // New explicit prop for robust rendering
     [key: string]: any; // To allow other props like draggable, onDragEnd etc.
 }
 
-const CraneObject = forwardRef<any, CraneObjectProps>(({ obj, explicitWidth, ...props }, ref) => {
+const CraneObject = forwardRef<any, CraneObjectProps>(({ obj, ...props }, ref) => {
 
-    // --- ROBUST DIMENSIONING ---
-    // Prioritize the explicitly passed width. Fall back to the object's own width, then to a safe default.
-    const armLength = explicitWidth || obj.width || 100;
+    // STABLE FIX: Crane's visual representation is now directly and solely driven by obj.radius
+    const armLength = obj.radius || 100;
     
-    // Detailed dimensions based on the robust armLength
+    // Detailed dimensions based on the primary armLength property
     const counterWeightLength = armLength * 0.3;
     const towerWidth = Math.min(armLength * 0.1, 20);
     const armWidth = towerWidth * 0.8;
-
-    const workingRadius = obj.radius || armLength * 0.8;
 
     return (
         <Group {...props} ref={ref}>
             {/* Work Radius Circle */}
             <Circle
-                radius={workingRadius}
+                radius={armLength} // The radius of the circle is the arm length
                 fill="rgba(255, 193, 7, 0.2)" // Yellow, semi-transparent
                 stroke="rgba(255, 193, 7, 0.5)"
                 strokeWidth={2}
@@ -66,9 +62,9 @@ const CraneObject = forwardRef<any, CraneObjectProps>(({ obj, explicitWidth, ...
                 y={-towerWidth / 2}
             />
 
-            {/* Hoist Line - The "Yellow Line" */}
+            {/* Hoist Line - Visual indicator, not the true radius line */}
             <Line
-                points={[0, 0, workingRadius, 0]}
+                points={[0, 0, armLength * 0.8, 0]} // A visual line to represent the hoist
                 stroke="#FFD700" // Gold (Yellow)
                 strokeWidth={2}
                 listening={false}

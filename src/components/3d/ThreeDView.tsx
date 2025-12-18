@@ -97,12 +97,21 @@ const Controls = ({ selectedId, objects, onObjectChange, background }) => {
 const PolygonObject = ({ obj }: { obj: APDObject }) => {
     const geometry = useMemo(() => {
         if (!obj.points || obj.points.length < 4) return null;
-        const shapePoints = obj.points.map((p, i) => i % 2 === 0 ? new THREE.Vector2(obj.points[i] * SCALE_FACTOR, -obj.points[i+1] * SCALE_FACTOR) : null).filter(Boolean) as THREE.Vector2[];
+        // STABLE FIX: Removed negation of Z-coordinate to match 2D canvas
+        const shapePoints = obj.points.map((p, i) => i % 2 === 0 ? new THREE.Vector2(obj.points[i] * SCALE_FACTOR, obj.points[i+1] * SCALE_FACTOR) : null).filter(Boolean) as THREE.Vector2[];
         const shape = new THREE.Shape(shapePoints);
-        // The extrusion depth is now directly controlled by height3d
         const extrudeSettings = { depth: obj.height3d || 2.5, bevelEnabled: false };
         return new THREE.ExtrudeGeometry(shape, extrudeSettings);
     }, [obj.points, obj.height3d]);
+
+    // STÄDA.MD FIX: Ensure GPU memory is released when the object is removed or changed.
+    useEffect(() => {
+        return () => {
+            if (geometry) {
+                geometry.dispose();
+            }
+        };
+    }, [geometry]);
 
     return (
         <mesh geometry={geometry} castShadow receiveShadow rotation={[-Math.PI / 2, 0, 0]}>

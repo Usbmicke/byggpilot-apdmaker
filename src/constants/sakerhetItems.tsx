@@ -6,6 +6,7 @@ import PpeImage from '@/assets/ikoner/ppe.png';
 import AtersamlingsplatsImage from '@/assets/ikoner/atersamlingsplats.png';
 import BrandslackareImage from '@/assets/ikoner/brandslackare.png';
 
+const SHARED_SIZE = { width: 40, height: 40 };
 
 // --- SVG Definitions ---
 const ForstaHjalpenSVG = `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><rect width="60" height="60" x="2" y="2" fill="#00C853" stroke="#fff" stroke-width="2" rx="4"/><path d="M32 12 V52 M12 32 H52" stroke="#FFFFFF" stroke-width="12" stroke-linecap="square"/></svg>`;
@@ -32,14 +33,14 @@ const PpeIcon = () => <img src={PpeImage} alt="Personlig skyddsutrustning" class
 export const sakerhetCategory: { name: string; items: LibraryItem[] } = {
     name: "Säkerhet",
     items: [
-        { type: 'forsta-hjalpen', name: 'Första hjälpen', icon: <ForstaHjalpenIcon />, iconUrl: createIcon(ForstaHjalpenSVG) },
-        { type: 'hjartstartare', name: 'Hjärtstartare', icon: <HjartstartareIcon />, iconUrl: createIcon(HjartstartareSVG) },
-        { type: 'atersamlingsplats', name: 'Återsamlingsplats', icon: <AtersamlingsplatsIcon />, iconUrl: AtersamlingsplatsImage },
-        { type: 'brandslackare', name: 'Brandsläckare', icon: <BrandslackareIcon />, iconUrl: BrandslackareImage },
-        { type: 'brandpost', name: 'Brandpost', icon: <BrandpostIcon />, iconUrl: createIcon(BrandpostSVG) },
-        { type: 'ogondusch', name: 'Ögondusch', icon: <OgonduschIcon />, iconUrl: createIcon(OgonduschSVG) },
-        { type: 'saneringsutrustning', name: 'Saneringsutrustning', icon: <SaneringsutrustningIcon />, iconUrl: createIcon(SaneringsutrustningSVG) },
-        { type: 'raddningsutrustning', name: 'Räddningsutrustning', icon: <RaddningsutrustningIcon />, iconUrl: createIcon(RaddningsutrustningSVG) },
-        { type: 'ppe', name: 'Personlig skyddsutrustning', icon: <PpeIcon />, iconUrl: PpeImage },
+        { type: 'forsta-hjalpen', name: 'Första hjälpen', icon: <ForstaHjalpenIcon />, iconUrl: createIcon(ForstaHjalpenSVG), initialProps: SHARED_SIZE },
+        { type: 'hjartstartare', name: 'Hjärtstartare', icon: <HjartstartareIcon />, iconUrl: createIcon(HjartstartareSVG), initialProps: SHARED_SIZE },
+        { type: 'atersamlingsplats', name: 'Återsamlingsplats', icon: <AtersamlingsplatsIcon />, iconUrl: AtersamlingsplatsImage, initialProps: SHARED_SIZE },
+        { type: 'brandslackare', name: 'Brandsläckare', icon: <BrandslackareIcon />, iconUrl: BrandslackareImage, initialProps: SHARED_SIZE },
+        { type: 'brandpost', name: 'Brandpost', icon: <BrandpostIcon />, iconUrl: createIcon(BrandpostSVG), initialProps: SHARED_SIZE },
+        { type: 'ogondusch', name: 'Ögondusch', icon: <OgonduschIcon />, iconUrl: createIcon(OgonduschSVG), initialProps: SHARED_SIZE },
+        { type: 'saneringsutrustning', name: 'Saneringsutrustning', icon: <SaneringsutrustningIcon />, iconUrl: createIcon(SaneringsutrustningSVG), initialProps: SHARED_SIZE },
+        { type: 'raddningsutrustning', name: 'Räddningsutrustning', icon: <RaddningsutrustningIcon />, iconUrl: createIcon(RaddningsutrustningSVG), initialProps: SHARED_SIZE },
+        { type: 'ppe', name: 'Personlig skyddsutrustning', icon: <PpeIcon />, iconUrl: PpeImage, initialProps: SHARED_SIZE },
     ]
 };

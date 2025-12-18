@@ -26,6 +26,8 @@ const VattenIcon = () => <SvgIcon svg={VattenSVG} />;
 const LjusmastIcon = () => <SvgIcon svg={LjusmastSVG} />;
 const GasIcon = () => <SvgIcon svg={GasSVG} />;
 
+const UNIFORM_SIZE = { width: 50, height: 50 };
+
 // --- Category Export ---
 export const utrustningCategory: { name: string; items: LibraryItem[] } = {
     name: "Utrustning",
@@ -37,14 +39,13 @@ export const utrustningCategory: { name: string; items: LibraryItem[] } = {
             icon: <CraneIcon />,
             iconUrl: createIcon(KranSVG),
             initialProps: {
-                radius: 20, // Reduced from 30
-                width: 40, // Reduced from 60
-                height: 40, // Reduced from 60
+                ...UNIFORM_SIZE,
+                radius: 25,
             }
         },
-        { id: 'el-std', type: 'elcentral', name: 'Elcentral', icon: <ElcentralIcon />, iconUrl: createIcon(ElcentralSVG) },
-        { id: 'vatten-std', type: 'vatten', name: 'Vattenutkastare', icon: <VattenIcon />, iconUrl: createIcon(VattenSVG) },
-        { id: 'gas-std', type: 'gas', name: 'Gasförvaring', icon: <GasIcon />, iconUrl: createIcon(GasSVG) },
-        { id: 'ljus-std', type: 'belysningsmast', name: 'Belysningsmast', icon: <LjusmastIcon />, iconUrl: createIcon(LjusmastSVG) },
+        { id: 'el-std', type: 'elcentral', name: 'Elcentral', icon: <ElcentralIcon />, iconUrl: createIcon(ElcentralSVG), initialProps: UNIFORM_SIZE },
+        { id: 'vatten-std', type: 'vatten', name: 'Vattenutkastare', icon: <VattenIcon />, iconUrl: createIcon(VattenSVG), initialProps: UNIFORM_SIZE },
+        { id: 'gas-std', type: 'gas', name: 'Gasförvaring', icon: <GasIcon />, iconUrl: createIcon(GasSVG), initialProps: UNIFORM_SIZE },
+        { id: 'ljus-std', type: 'belysningsmast', name: 'Belysningsmast', icon: <LjusmastIcon />, iconUrl: createIcon(LjusmastSVG), initialProps: UNIFORM_SIZE },
     ]
 };

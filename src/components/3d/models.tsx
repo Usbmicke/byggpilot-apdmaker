@@ -1,5 +1,5 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { useTexture, Plane } from '@react-three/drei';
 import * as THREE from 'three';
 import { APDObject, LibraryItem } from '../../types';
@@ -155,7 +155,8 @@ export const FenceObject = ({ obj }: { obj: APDObject }) => {
         if (!obj.points || obj.points.length < 2) return [];
         const result = [];
         for (let i = 0; i < obj.points.length; i += 2) {
-            result.push(new THREE.Vector3(obj.points[i] * SCALE_FACTOR, 0, -obj.points[i + 1] * SCALE_FACTOR));
+            // STABLE FIX: Removed negation of Z-coordinate to match 2D canvas
+            result.push(new THREE.Vector3(obj.points[i] * SCALE_FACTOR, 0, obj.points[i + 1] * SCALE_FACTOR));
         }
         return result;
     }, [obj.points]);
@@ -201,6 +202,9 @@ export const SignObject = ({ item }: { item: LibraryItem }) => {
     const symbolSize = 1.0;
     const texture = useTexture(item.iconUrl!);
 
+    // STÄDA.MD FIX: Ensure texture is disposed to prevent memory leaks.
+    useEffect(() => () => texture.dispose(), [texture]);
+
     return (
         <group>
             <mesh castShadow position={[0, poleHeight / 2, 0]}>
@@ -221,16 +225,19 @@ export const GroundMarkingObject = ({ obj }: { obj: APDObject }) => {
         // Correctly create Vector2 for the shape from the flat points array
         const shapePoints = [];
         for (let i = 0; i < obj.points.length; i += 2) {
-            shapePoints.push(new THREE.Vector2(obj.points[i] * SCALE_FACTOR, -obj.points[i + 1] * SCALE_FACTOR));
+             // STABLE FIX: Removed negation of Y-coordinate to match 2D canvas
+            shapePoints.push(new THREE.Vector2(obj.points[i] * SCALE_FACTOR, obj.points[i + 1] * SCALE_FACTOR));
         }
         const shape = new THREE.Shape(shapePoints);
         return new THREE.ShapeGeometry(shape);
     }, [obj.points]);
 
+    // STÄDA.MD FIX: Ensure GPU memory is released when the object is removed or changed.
+    useEffect(() => () => { if (geometry) geometry.dispose() }, [geometry]);
+
     let color = obj.item.fill || '#FFFFFF';
     let opacity = 0.5;
 
-    // Use types for better matching
     if (obj.type === 'schakt') color = '#8D6E63';
     if (obj.type.includes('traffic')) color = '#FBBF24';
     if (obj.type.includes('pedestrian')) color = '#3B82F6';

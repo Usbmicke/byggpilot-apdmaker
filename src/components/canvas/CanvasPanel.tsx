@@ -60,7 +60,7 @@ interface CanvasPanelProps {
     setSelectedTool: (item: LibraryItem | null) => void;
 }
 
-export interface CanvasPanelRef {}
+export interface CanvasPanelRef { }
 
 const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>((
     { stageRef, objects, background, selectedIds, setSelectedIds, checkDeselect, addObject, updateObject, removeObjects, handleFile, canUndo, canRedo, undo, redo, selectedTool, setSelectedTool }, ref
@@ -240,6 +240,7 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>((
                             <DraggableObject
                                 key={obj.id}
                                 obj={obj}
+                                objects={objects}
                                 isSelected={selectedIds.includes(obj.id)}
                                 onSelect={handleObjectClick}
                                 onChange={updateObject}

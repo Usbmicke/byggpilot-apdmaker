@@ -12,6 +12,7 @@ import CraneObject from '../canvas/CraneObject';
 
 interface DraggableObjectProps {
     obj: APDObject;
+    objects?: APDObject[];
     isSelected: boolean;
     onSelect: (e: any) => void;
     onChange: (attrs: Partial<APDObject>, immediate: boolean) => void;
@@ -20,7 +21,7 @@ interface DraggableObjectProps {
 
 const SAFE_DIMENSION = 50;
 
-const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSelect, onChange, isDrawing }) => {
+const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, objects, isSelected, onSelect, onChange, isDrawing }) => {
     const shapeRef = useRef<any>();
 
     const width = obj.width || obj.item.width || SAFE_DIMENSION;
@@ -29,8 +30,87 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSe
     const imageUrl = obj.item.iconUrl || '';
     const [image, imageStatus] = useImage(imageUrl, 'anonymous');
 
+    const handleDragMove = (e: any) => {
+        if (isDrawing) return;
+
+        const target = e.target;
+        const targetRect = target.getClientRect();
+
+        let bestX = target.x();
+        let bestY = target.y();
+        const snapDist = 15;
+
+        // Snapping Logic
+        if (objects) {
+            objects.forEach((other: APDObject) => {
+                if (other.id === obj.id) return;
+
+                // Allow snapping to other rect-like objects
+                const otherWidth = other.width || other.item.width || SAFE_DIMENSION;
+                const otherHeight = other.height || other.item.height || SAFE_DIMENSION;
+
+                // Snap X
+                if (Math.abs(bestX - other.x) < snapDist) bestX = other.x; // Left align
+                if (Math.abs((bestX + width) - (other.x + otherWidth)) < snapDist) bestX = other.x + otherWidth - width; // Right align
+                if (Math.abs(bestX - (other.x + otherWidth)) < snapDist) bestX = other.x + otherWidth; // Snap right to left
+                if (Math.abs((bestX + width) - other.x) < snapDist) bestX = other.x - width; // Snap left to right
+
+                // Snap Y
+                if (Math.abs(bestY - other.y) < snapDist) bestY = other.y; // Top align
+                if (Math.abs((bestY + height) - (other.y + otherHeight)) < snapDist) bestY = other.y + otherHeight - height; // Bottom align
+                if (Math.abs(bestY - (other.y + otherHeight)) < snapDist) bestY = other.y + otherHeight; // Snap top to bottom
+                if (Math.abs((bestY + height) - other.y) < snapDist) bestY = other.y - height; // Snap bottom to top
+            });
+        }
+
+        target.x(bestX);
+        target.y(bestY);
+    };
+
     const handleDragEnd = (e: any) => {
-        onChange({ x: e.target.x(), y: e.target.y() }, true);
+        const x = e.target.x();
+        const y = e.target.y();
+
+        // Stacking Logic
+        let newElevation = 0;
+        if (objects) {
+            // Find if we dropped ON TOP of another object (Stacking)
+            // We check center point of dragged object
+            const cx = x + width / 2;
+            const cy = y + height / 2;
+
+            for (const other of objects) {
+                if (other.id === obj.id) continue;
+                // Don't stack on thin objects like lines/fences usually, but allow sheds etc.
+                const otherWidth = other.width || other.item.width || SAFE_DIMENSION;
+                const otherHeight = other.height || other.item.height || SAFE_DIMENSION;
+
+                if (cx > other.x && cx < other.x + otherWidth &&
+                    cy > other.y && cy < other.y + otherHeight) {
+
+                    // Stack on top!
+                    // If the other object is already stacked, add to its elevation + height
+                    const otherElevation = other.elevation || 0;
+                    // Assume 2.5m height per 'floor' if not specified, or use object 3d height if available
+                    // We need a height property. Let's assume standard shed height ~2.6m (26 units? or relative?)
+                    // In our system, height3d might be set, or we default.
+
+                    // Simple stacking: new elevation = other.elevation + other's height
+                    // We need to fetch the '3d height' of the object below.
+                    // For now, let's assume a standard height increment for stackable items.
+                    const stackHeight = other.height3d || 2.6;
+                    newElevation = otherElevation + stackHeight;
+
+                    // Snap X/Y to match the one below for perfect stack?
+                    // Let's NOT force snap X/Y on stack, just elevation, unless usage implies it.
+                    // User asked for "stacking", usually implies alignment.
+                    // Let's auto-align if 'close enough' to center, or just leave it.
+                    // User said "magnetiska", so the move handler handles alignment.
+                }
+            }
+        }
+
+        onChange({ x, y, elevation: newElevation }, true);
     };
 
     // NOTE: onTransformEnd is now handled by CanvasPanel's Transformer
@@ -45,6 +125,7 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, isSelected, onSe
         listening: !isDrawing,
         onClick: onSelect,
         onTap: onSelect,
+        onDragMove: handleDragMove,
         onDragEnd: handleDragEnd,
         // onTransformEnd is removed
         ref: shapeRef,

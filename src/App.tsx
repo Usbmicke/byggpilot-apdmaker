@@ -28,12 +28,48 @@ const App: React.FC = () => {
     const canvasPanelRef = useRef<CanvasPanelRef>(null);
     const threeDViewRef = useRef<ThreeDViewHandles>(null);
 
-    const { state: objects, setState: setObjects, undo, redo, canUndo, canRedo, resetHistory } = useHistory<APDObject[]>([]);
+    // Load initial objects from localStorage if available
+    // We use useState with lazy initialization to ensure we only read from localStorage once
+    const [initialObjects] = useState<APDObject[]>(() => {
+        try {
+            const saved = localStorage.getItem('apd-objects');
+            return saved ? (JSON.parse(saved) || []) : [];
+        } catch (e) {
+            console.error('Failed to load objects', e);
+            return [];
+        }
+    });
 
-    const [background, setBackground] = useState<{ url: string; width: number; height: number; } | null>(null);
+    const { state: objects, setState: setObjects, undo, redo, canUndo, canRedo, resetHistory } = useHistory<APDObject[]>(initialObjects);
+
+    const [background, setBackground] = useState<{ url: string; width: number; height: number; } | null>(() => {
+        try {
+            const saved = localStorage.getItem('apd-background');
+            return saved ? JSON.parse(saved) : null;
+        } catch (e) {
+            console.error('Failed to load background', e);
+            return null;
+        }
+    });
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
-    const [projectInfo, setProjectInfo] = useState<ProjectInfo>(defaultProjectInfo);
-    const [customLegendItems, setCustomLegendItems] = useState<CustomLegendItem[]>(defaultCustomLegend);
+    const [projectInfo, setProjectInfo] = useState<ProjectInfo>(() => {
+        try {
+            const saved = localStorage.getItem('apd-project-info');
+            return saved ? (JSON.parse(saved) || defaultProjectInfo) : defaultProjectInfo;
+        } catch (e) {
+            console.error('Failed to load project info', e);
+            return defaultProjectInfo;
+        }
+    });
+    const [customLegendItems, setCustomLegendItems] = useState<CustomLegendItem[]>(() => {
+        try {
+            const saved = localStorage.getItem('apd-custom-legend');
+            return saved ? (JSON.parse(saved) || defaultCustomLegend) : defaultCustomLegend;
+        } catch (e) {
+            console.error('Failed to load custom legend', e);
+            return defaultCustomLegend;
+        }
+    });
     const [isLocked, setIsLocked] = useState(false);
 
     const [selectedTool, setSelectedTool] = useState<LibraryItem | null>(null);
@@ -47,6 +83,28 @@ const App: React.FC = () => {
             return () => URL.revokeObjectURL(backgroundUrl);
         }
     }, [background?.url]);
+
+    // -- Persistence Effects --
+    useEffect(() => {
+        localStorage.setItem('apd-objects', JSON.stringify(objects));
+    }, [objects]);
+
+    useEffect(() => {
+        localStorage.setItem('apd-project-info', JSON.stringify(projectInfo));
+    }, [projectInfo]);
+
+    useEffect(() => {
+        localStorage.setItem('apd-custom-legend', JSON.stringify(customLegendItems));
+    }, [customLegendItems]);
+
+    useEffect(() => {
+        if (background) {
+            localStorage.setItem('apd-background', JSON.stringify(background));
+        } else {
+            localStorage.removeItem('apd-background');
+        }
+    }, [background]);
+    // -------------------------
 
     // FIX UX-2: Global cursor change for drawing tools
     useEffect(() => {
@@ -104,7 +162,7 @@ const App: React.FC = () => {
         if (newQuantity > 0) {
             const representativeObject: APDObject = { ...template, id: uuidv4(), quantity: newQuantity, x: template.x, y: template.y };
             finalObjects = [...otherObjects, representativeObject];
-        } 
+        }
         setObjects(finalObjects, true);
     };
 
@@ -212,7 +270,7 @@ const App: React.FC = () => {
                 <div className="flex flex-1 overflow-hidden">
                     <Library isOpen={isLibraryOpen} selectedTool={selectedTool} onSelectTool={setSelectedTool} />
                     <div className="flex-1 flex flex-col relative">
-                        {show3D ? <ThreeDView ref={threeDViewRef} objects={objects} background={background} libraryCategories={LIBRARY_CATEGORIES} selectedId={selectedIds.length > 0 ? selectedIds[0] : null} onSelect={(id) => setSelectedIds(id ? [id] : [])} onObjectChange={(id, attrs) => updateObject(id, attrs, false)} onSnapshotRequest={() => setObjects(objects, true)} isLocked={isLocked} setIsLocked={setIsLocked} />
+                        {show3D ? <ThreeDView ref={threeDViewRef} objects={objects} background={background} libraryCategories={LIBRARY_CATEGORIES} selectedId={selectedIds.length > 0 ? selectedIds[0] : null} onSelect={(id) => setSelectedIds(id ? [id] : [])} onObjectChange={(id, attrs) => updateObject(id, attrs, false)} onAddObject={addObject} onSnapshotRequest={() => setObjects(objects, true)} isLocked={isLocked} setIsLocked={setIsLocked} />
                             : <CanvasPanel ref={canvasPanelRef} stageRef={stageRef} objects={objects} background={background} selectedIds={selectedIds} setSelectedIds={setSelectedIds} checkDeselect={checkDeselect} addObject={addObject} updateObject={updateObject} removeObjects={removeObjects} handleFile={handleFile} undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo} selectedTool={selectedTool} setSelectedTool={setSelectedTool} />}
                     </div>
                     {background && <Legend isOpen={isLegendOpen} projectInfo={projectInfo} setProjectInfo={setProjectInfo} objects={objects} customItems={customLegendItems} setCustomItems={setCustomLegendItems} onRemoveObject={removeObjects} onUpdateObject={handleUpdateGroupQuantity} />}

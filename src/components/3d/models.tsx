@@ -5,12 +5,34 @@ import * as THREE from 'three';
 import { APDObject, LibraryItem } from '../../types';
 import { SCALE_FACTOR } from '../../utils/coordinateUtils';
 
-// ==================================================================
-// Operation 3D-Total: Replacing placeholder primitives with
-// higher quality, recognizable 3D models.
-// ==================================================================
+// DEFINITIVE FIX: Polygon shapes must have their local Y-coordinate negated when creating the THREE.Shape
+// to counteract the inverted Y-axis of the 2D canvas vs. the 3D coordinate system.
+export const PolygonObject = ({ obj }: { obj: APDObject }) => {
+    const geometry = useMemo(() => {
+        if (!obj.points || obj.points.length < 4) return null;
 
-// --- High-Quality Models ---
+        const shapePoints = [];
+        for (let i = 0; i < obj.points.length; i += 2) {
+            const localX = (obj.points[i] - obj.x) * SCALE_FACTOR;
+            const localY = -(obj.points[i+1] - obj.y) * SCALE_FACTOR; // Negating Y to fix mirroring.
+            shapePoints.push(new THREE.Vector2(localX, localY));
+        }
+
+        const shape = new THREE.Shape(shapePoints);
+        const extrudeSettings = { depth: obj.height3d || 3, bevelEnabled: false };
+        return new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    }, [obj.points, obj.x, obj.y, obj.height3d]);
+
+    useEffect(() => () => { if (geometry) geometry.dispose(); }, [geometry]);
+
+    return (
+        <mesh geometry={geometry} castShadow receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
+            <meshStandardMaterial color={obj.item.fill || '#C2B280'} side={THREE.DoubleSide} />
+        </mesh>
+    );
+};
+
+const MemoizedPlane = React.memo(Plane);
 
 export const CraneObject = ({ obj }: { obj: APDObject }) => {
     const towerHeight = 30;
@@ -20,27 +42,22 @@ export const CraneObject = ({ obj }: { obj: APDObject }) => {
 
     return (
         <group rotation={[0, THREE.MathUtils.degToRad(obj.rotation || 0), 0]}>
-            {/* Tower Mast */}
             <mesh castShadow position={[0, towerHeight / 2, 0]}>
                 <boxGeometry args={[1.5, towerHeight, 1.5]} />
                 <meshStandardMaterial color="#FFD700" />
             </mesh>
-            {/* Jib (Arm) */}
             <mesh castShadow position={[jibLength / 2, jibY, 0]}>
                 <boxGeometry args={[jibLength, 1, 1.5]} />
                 <meshStandardMaterial color="#FFD700" />
             </mesh>
-            {/* Counterweight Arm */}
             <mesh castShadow position={[-counterweightLength / 2, jibY, 0]}>
                 <boxGeometry args={[counterweightLength, 1.5, 1.5]} />
                 <meshStandardMaterial color="#FFD700" />
             </mesh>
-            {/* Counterweight Block */}
             <mesh castShadow position={[-counterweightLength, jibY, 0]}>
                 <boxGeometry args={[2, 3, 3]} />
                 <meshStandardMaterial color="#555555" />
             </mesh>
-             {/* Trolley and Hook - simplified */}
              <mesh position={[jibLength * 0.7, jibY - 1, 0]}>
                 <cylinderGeometry args={[0.2, 0.2, 2, 8]} />
                 <meshStandardMaterial color="#444444" />
@@ -58,17 +75,14 @@ export const SiteShedObject = ({ obj }: { obj: APDObject }) => {
 
     return (
         <group>
-            {/* Main Body */}
             <mesh castShadow receiveShadow position={[0, height / 2, 0]}>
                 <boxGeometry args={[width, height, depth]} />
                 <meshStandardMaterial color={color} />
             </mesh>
-            {/* Sloped Roof */}
             <mesh castShadow position={[0, height + roofHeight / 2, 0]}>
                 <boxGeometry args={[width, roofHeight, depth]} />
                 <meshStandardMaterial color="#666666" />
             </mesh>
-            {/* Legs/Foundation */}
              {[ -width/2, width/2 ].map(x => 
                  [ -depth/2, depth/2 ].map(z => 
                     <mesh key={`${x}-${z}`} position={[x*0.9, 0.15, z*0.9]}>
@@ -85,8 +99,8 @@ export const ContainerObject = ({ obj }: { obj: APDObject }) => {
     const width = (obj.width || 6) * SCALE_FACTOR;
     const depth = (obj.height || 2.4) * SCALE_FACTOR;
     const height = 2.6;
-    let color = '#22C55E'; // Default green
-    if (obj.type.includes('30')) color = '#EF4444'; // Red for 30m3
+    let color = '#22C55E';
+    if (obj.type.includes('30')) color = '#EF4444';
 
     return (
         <group>
@@ -94,7 +108,6 @@ export const ContainerObject = ({ obj }: { obj: APDObject }) => {
                 <boxGeometry args={[width, height, depth]} />
                 <meshStandardMaterial color={color} />
             </mesh>
-            {/* Corrugated sides effect using multiple thin boxes */}
             {[...Array(10)].map((_, i) => (
                 <mesh key={i} position={[-width / 2 + (i + 0.5) * (width/10), height / 2, depth/2]}>
                     <boxGeometry args={[0.05, height, 0.05]} />
@@ -115,7 +128,7 @@ export const GenericWorkshopObject = ({ obj }: { obj: APDObject }) => {
     const width = (obj.width || 4) * SCALE_FACTOR;
     const depth = (obj.height || 4) * SCALE_FACTOR;
     const height = 3.5;
-    const color = obj.type === 'saw_shed' ? '#A1662F' : '#6B7280'; // Brown for saw, grey for rebar
+    const color = obj.type === 'saw_shed' ? '#A1662F' : '#6B7280';
     return (
         <group>
             <mesh castShadow receiveShadow position={[0, height / 2, 0]}>
@@ -155,11 +168,12 @@ export const FenceObject = ({ obj }: { obj: APDObject }) => {
         if (!obj.points || obj.points.length < 2) return [];
         const result = [];
         for (let i = 0; i < obj.points.length; i += 2) {
-            // STABLE FIX: Removed negation of Z-coordinate to match 2D canvas
-            result.push(new THREE.Vector3(obj.points[i] * SCALE_FACTOR, 0, obj.points[i + 1] * SCALE_FACTOR));
+            const localX = (obj.points[i] - obj.x) * SCALE_FACTOR;
+            const localZ = -(obj.points[i + 1] - obj.y) * SCALE_FACTOR; // Correctly negate to handle coordinate system difference
+            result.push(new THREE.Vector3(localX, 0, localZ));
         }
         return result;
-    }, [obj.points]);
+    }, [obj.points, obj.x, obj.y]);
 
     return (
         <group>
@@ -170,9 +184,9 @@ export const FenceObject = ({ obj }: { obj: APDObject }) => {
                         <meshStandardMaterial color="#777777" metalness={0.6} roughness={0.4} />
                     </mesh>
                     {i < points.length - 1 && (
-                         <Plane args={[p.distanceTo(points[i+1]), fenceHeight]} position={[(p.x + points[i+1].x) / 2, fenceHeight / 2, (p.z + points[i+1].z) / 2]} lookAt={points[i+1]}>
+                         <MemoizedPlane args={[p.distanceTo(points[i+1]), fenceHeight]} position={[(p.x + points[i+1].x) / 2, fenceHeight / 2, (p.z + points[i+1].z) / 2]} lookAt={points[i+1]}>
                             <meshStandardMaterial wireframe color="#AAAAAA" transparent opacity={0.7} side={THREE.DoubleSide} />
-                        </Plane>
+                        </MemoizedPlane>
                     )}
                 </React.Fragment>
             ))}
@@ -201,9 +215,7 @@ export const SignObject = ({ item }: { item: LibraryItem }) => {
     const poleHeight = 2.5;
     const symbolSize = 1.0;
     const texture = useTexture(item.iconUrl!);
-
-    // STÄDA.MD FIX: Ensure texture is disposed to prevent memory leaks.
-    useEffect(() => () => texture.dispose(), [texture]);
+    useEffect(() => () => { if(texture) texture.dispose() }, [texture]);
 
     return (
         <group>
@@ -211,28 +223,27 @@ export const SignObject = ({ item }: { item: LibraryItem }) => {
                 <cylinderGeometry args={[0.05, 0.05, poleHeight, 8]} />
                 <meshStandardMaterial color="#555" metalness={0.9} roughness={0.1} />
             </mesh>
-            <Plane args={[symbolSize, symbolSize]} position={[0, poleHeight, 0]}>
+            <MemoizedPlane args={[symbolSize, symbolSize]} position={[0, poleHeight, 0]}>
                 <meshStandardMaterial map={texture} transparent side={THREE.DoubleSide} alphaTest={0.5} />
-            </Plane>
+            </MemoizedPlane>
         </group>
     );
 };
 
-
 export const GroundMarkingObject = ({ obj }: { obj: APDObject }) => {
     const geometry = useMemo(() => {
         if (!obj.points || obj.points.length < 4) return null;
-        // Correctly create Vector2 for the shape from the flat points array
+
         const shapePoints = [];
         for (let i = 0; i < obj.points.length; i += 2) {
-             // STABLE FIX: Removed negation of Y-coordinate to match 2D canvas
-            shapePoints.push(new THREE.Vector2(obj.points[i] * SCALE_FACTOR, obj.points[i + 1] * SCALE_FACTOR));
+            const localX = (obj.points[i] - obj.x) * SCALE_FACTOR;
+            const localY = -(obj.points[i + 1] - obj.y) * SCALE_FACTOR; // Negating Y to fix mirroring.
+            shapePoints.push(new THREE.Vector2(localX, localY));
         }
         const shape = new THREE.Shape(shapePoints);
         return new THREE.ShapeGeometry(shape);
-    }, [obj.points]);
+    }, [obj.points, obj.x, obj.y]);
 
-    // STÄDA.MD FIX: Ensure GPU memory is released when the object is removed or changed.
     useEffect(() => () => { if (geometry) geometry.dispose() }, [geometry]);
 
     let color = obj.item.fill || '#FFFFFF';

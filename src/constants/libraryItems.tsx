@@ -7,15 +7,15 @@ import { miljoCategory } from './miljoItems';
 import { utrustningCategory } from './utrustningItems';
 import { skyltarCategory } from './skyltarItems';
 import { ritverktygCategory } from './ritverktygItems';
-import { anlaggningCategory } from './anlaggningItems'; // Importera den nya kategorin
+import { anlaggningCategory } from './anlaggningItems';
 
 export const LIBRARY_CATEGORIES: { name: string; items: LibraryItem[] }[] = [
+    ritverktygCategory, // Moved to the top as requested
     etableringCategory,
-    anlaggningCategory, // Lägg till den nya kategorin i listan
+    anlaggningCategory,
     logistikCategory,
     sakerhetCategory,
     miljoCategory,
     utrustningCategory,
     skyltarCategory,
-    ritverktygCategory,
 ];

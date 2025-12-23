@@ -9,7 +9,7 @@ const ProjectInfoForm = React.memo(({ projectInfo, onInfoChange }: { projectInfo
     <div className="space-y-3 mb-6">
         {Object.keys(projectInfo).map(key => (
             <div key={key}>
-                <label htmlFor={key} className="text-sm font-medium text-slate-400 capitalize">
+                <label htmlFor={key} className="text-sm font-medium text-zinc-400 capitalize">
                     {key.replace(/([A-Z])/g, ' $1')}
                 </label>
                 <input
@@ -18,7 +18,7 @@ const ProjectInfoForm = React.memo(({ projectInfo, onInfoChange }: { projectInfo
                     id={key}
                     value={projectInfo[key as keyof ProjectInfo] || ''}
                     onChange={onInfoChange}
-                    className="mt-1 p-2 bg-slate-700 border border-slate-600 rounded-lg text-sm w-full text-slate-200 placeholder:text-slate-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    className="mt-1 p-2 bg-zinc-800 border border-zinc-700 rounded-lg text-sm w-full text-zinc-200 placeholder:text-zinc-500 focus:ring-1 focus:ring-zinc-500 focus:border-zinc-500"
                 />
             </div>
         ))}
@@ -29,22 +29,22 @@ const ObjectRow = React.memo(({
     group,
     count,
     onRemove,
-}: { 
-    group: { name: string; type: string; ids: string[]; iconUrl?: string }, 
-    count: number, 
-    onRemove: (ids: string[]) => void, 
+}: {
+    group: { name: string; type: string; ids: string[]; iconUrl?: string },
+    count: number,
+    onRemove: (ids: string[]) => void,
 }) => {
     return (
-        <div className="flex items-center justify-between p-2 bg-slate-800 rounded-lg border border-slate-700 shadow-sm">
+        <div className="flex items-center justify-between p-2 bg-zinc-900 rounded-lg border border-zinc-800 shadow-sm">
             <div className="flex items-center min-w-0">
-                <div className="w-6 h-6 mr-3 text-slate-400 flex-shrink-0">{findIcon(group.type, group.iconUrl)}</div>
-                <span className="text-sm font-medium text-slate-300 truncate" title={group.name}>{group.name}</span>
+                <div className="w-6 h-6 mr-3 text-zinc-400 flex-shrink-0">{findIcon(group.type, group.iconUrl)}</div>
+                <span className="text-sm font-medium text-zinc-300 truncate" title={group.name}>{group.name}</span>
             </div>
             <div className="flex items-center">
-                <span className="w-12 p-1 text-sm bg-slate-700 border border-slate-600 rounded-md text-slate-200 text-center font-mono">{count}</span>
+                <span className="w-12 p-1 text-sm bg-zinc-800 border border-zinc-700 rounded-md text-zinc-200 text-center font-mono">{count}</span>
                 <button
                     onClick={() => onRemove(group.ids)}
-                    className="ml-2 p-1 text-red-500 hover:text-red-400 rounded-full hover:bg-slate-700"
+                    className="ml-2 p-1 text-red-500 hover:text-red-400 rounded-full hover:bg-zinc-800"
                     aria-label={`Ta bort alla ${group.name}`}
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -103,15 +103,15 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
     return (
         <aside
             id="legend-panel"
-            className={`bg-slate-900 text-slate-300 transition-[width,transform] duration-300 ease-in-out h-full z-20 md:static md:h-auto md:shadow-none md:border-slate-700 overflow-hidden flex-shrink-0
+            className={`bg-[#18181b] text-zinc-300 transition-[width,transform] duration-300 ease-in-out h-full z-20 md:static md:h-auto md:shadow-none md:border-zinc-800 overflow-hidden flex-shrink-0
                 ${isOpen ? 'translate-x-0 w-80 md:w-80 md:border-l' : 'translate-x-full md:translate-x-0 md:w-0 md:border-l-0'}`}
         >
             <div className="w-80 h-full p-4 overflow-y-auto flex flex-col">
-                <h2 className="text-xl font-bold border-b border-slate-700 pb-2 mb-4 text-slate-100 whitespace-nowrap">Projektinformation</h2>
-                
+                <h2 className="text-xl font-bold border-b border-zinc-700 pb-2 mb-4 text-zinc-100 whitespace-nowrap">Projektinformation</h2>
+
                 <ProjectInfoForm projectInfo={projectInfo} onInfoChange={handleInfoChange} />
 
-                <h2 className="text-xl font-bold border-y border-slate-700 py-2 my-4 text-slate-100 whitespace-nowrap">Objektförteckning</h2>
+                <h2 className="text-xl font-bold border-y border-zinc-700 py-2 my-4 text-zinc-100 whitespace-nowrap">Objektförteckning</h2>
 
                 <div className="space-y-2 mb-6">
                     {aggregatedObjects.map((group) => (

@@ -5,7 +5,8 @@
   --spark: 1.5s;
   --cut: 0.1em;
 
-  font-size: 14px; /* Anpassad storlek för header */
+  font-size: 14px;
+  /* Anpassad storlek för header */
   font-weight: bold;
   border: 0;
   cursor: pointer;
@@ -30,14 +31,46 @@
 }
 
 /* Modifier-klasser för färg */
+/* Premium Dark Green/Gray Hybrid (The User's Request) */
+.sparkle-premium {
+  --base-hue: 160;
+  /* Deep Green/Emerald */
+  --saturation: 15%;
+  /* Very low saturation for that " almost gray" look */
+  --lightness: 25%;
+
+  --bg: linear-gradient(135deg, hsl(160, 20%, 20%), hsl(210, 20%, 25%));
+  /* Gradient from dark green to dark slate */
+  --glow-color: hsl(160, 30%, 30% / 0.3);
+  /* Subtle glow */
+  --edge-color1: hsl(160, 10%, 40%);
+  --edge-color2: hsl(160, 10%, 30%);
+
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.sparkle-premium:hover {
+  --bg: linear-gradient(135deg, hsl(160, 25%, 25%), hsl(210, 25%, 30%));
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.1);
+  /* Very subtle emerald glow on hover */
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+/* Override defaults to be less "shiny" */
+.sparkle-button {
+  box-shadow: none !important;
+  /* Remove the heavy default glow */
+  text-shadow: none !important;
+}
+
 .sparkle-green {
   --base-hue: 142;
   --glow-color: hsl(var(--base-hue) 71% 45% / 0.75);
   --edge-color1: hsl(var(--base-hue) 71% 55%);
   --edge-color2: hsl(var(--base-hue) 71% 65%);
   --bg: radial-gradient(40% 50% at center 100%, hsl(var(--base-hue) calc(var(--active) * 71%) 80% / var(--active)), transparent),
-      radial-gradient(80% 100% at center 120%, hsl(var(--base-hue) calc(var(--active) * 71%) 70% / var(--active)), transparent),
-      hsl(var(--base-hue) 71% 45%);
+    radial-gradient(80% 100% at center 120%, hsl(var(--base-hue) calc(var(--active) * 71%) 70% / var(--active)), transparent),
+    hsl(var(--base-hue) 71% 45%);
 }
 
 .sparkle-blue {
@@ -46,8 +79,18 @@
   --edge-color1: hsl(var(--base-hue) 91% 70%);
   --edge-color2: hsl(var(--base-hue) 91% 80%);
   --bg: radial-gradient(40% 50% at center 100%, hsl(var(--base-hue) calc(var(--active) * 91%) 85% / var(--active)), transparent),
-      radial-gradient(80% 100% at center 120%, hsl(var(--base-hue) calc(var(--active) * 91%) 75% / var(--active)), transparent),
-      hsl(var(--base-hue) 91% 60%);
+    radial-gradient(80% 100% at center 120%, hsl(var(--base-hue) calc(var(--active) * 91%) 75% / var(--active)), transparent),
+    hsl(var(--base-hue) 91% 60%);
+}
+
+.sparkle-gray {
+  --base-hue: 210;
+  --glow-color: hsl(var(--base-hue) 20% 40% / 0.75);
+  --edge-color1: hsl(var(--base-hue) 20% 50%);
+  --edge-color2: hsl(var(--base-hue) 20% 60%);
+  --bg: radial-gradient(40% 50% at center 100%, hsl(var(--base-hue) calc(var(--active) * 20%) 55% / var(--active)), transparent),
+    radial-gradient(80% 100% at center 120%, hsl(var(--base-hue) calc(var(--active) * 20%) 45% / var(--active)), transparent),
+    hsl(var(--base-hue) 20% 30%);
 }
 
 .sparkle-red {
@@ -56,8 +99,8 @@
   --edge-color1: hsl(var(--base-hue) 83% 61%);
   --edge-color2: hsl(var(--base-hue) 83% 71%);
   --bg: radial-gradient(40% 50% at center 100%, hsl(var(--base-hue) calc(var(--active) * 83%) 80% / var(--active)), transparent),
-      radial-gradient(80% 100% at center 120%, hsl(var(--base-hue) calc(var(--active) * 83%) 70% / var(--active)), transparent),
-      hsl(var(--base-hue) 83% 51%);
+    radial-gradient(80% 100% at center 120%, hsl(var(--base-hue) calc(var(--active) * 83%) 70% / var(--active)), transparent),
+    hsl(var(--base-hue) 83% 51%);
 }
 
 .sparkle-button:is(:hover, :focus-visible) {
@@ -67,13 +110,13 @@
 /* Inre text och ikon */
 .sparkle-button .text {
   color: white;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 .sparkle-button svg {
   width: 18px;
   height: 18px;
-  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3));
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3));
 }
 
 /* --- Partikeleffekter --- */

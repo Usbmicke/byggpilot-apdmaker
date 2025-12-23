@@ -11,7 +11,7 @@ const debounce = <F extends (...args: any[]) => any>(func: F, delay: number) => 
 };
 
 // Typdefinitioner för reducer-logiken
-type HistoryAction<T> = 
+type HistoryAction<T> =
     | { type: 'SET_STATE'; payload: T }
     | { type: 'UNDO' }
     | { type: 'REDO' }
@@ -76,7 +76,7 @@ export interface UseHistoryReturn<T> {
 }
 
 export const useHistory = <T,>(initialState: T): UseHistoryReturn<T> => {
-    const [state, dispatch] = useReducer(historyReducer, {
+    const [state, dispatch] = useReducer<React.Reducer<HistoryState<T>, HistoryAction<T>>>(historyReducer, {
         past: [],
         present: initialState,
         future: [],

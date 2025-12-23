@@ -2,19 +2,23 @@
 
 .gradient-button {
   position: relative;
-  padding: 12px 24px; /* Något mindre padding för header */
-  font-size: 16px; /* Anpassad fontstorlek */
+  padding: 12px 24px;
+  /* Något mindre padding för header */
+  font-size: 16px;
+  /* Anpassad fontstorlek */
   font-weight: bold;
   color: white;
   background: transparent;
   border: none;
   cursor: pointer;
-  border-radius: 40px; /* Anpassad radie */
+  border-radius: 40px;
+  /* Anpassad radie */
   overflow: hidden;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   display: flex;
   align-items: center;
-  gap: 8px; /* Mellanrum mellan ikon och text */
+  gap: 8px;
+  /* Mellanrum mellan ikon och text */
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
@@ -30,26 +34,52 @@
   left: -50%;
   width: 200%;
   height: 200%;
-  background: conic-gradient(
-    from 0deg,
-    #ff6b6b, /* Röd */
-    #4ecdc4, /* Turkos */
-    #45b7d1, /* Blå */
-    #96ceb4, /* Grön */
-    #feca57, /* Gul */
-    #ff9ff3, /* Rosa */
-    #ff6b6b
-  );
+  background: conic-gradient(from 0deg,
+      #0f172a,
+      /* Slate 900 */
+      #1e293b,
+      /* Slate 800 */
+      #064e3b,
+      /* Emerald 900 */
+      #334155,
+      /* Slate 700 */
+      #065f46,
+      /* Emerald 800 */
+      #1e293b,
+      /* Slate 800 */
+      #0f172a
+      /* Slate 900 */
+    );
   z-index: -2;
-  animation: rotate-gradient 4s linear infinite; /* Kontinuerlig rotation */
+  animation: rotate-gradient 10s linear infinite;
+  /* Very slow, subtle rotation */
+}
+
+/* Pulsing effect to attract interest */
+@keyframes gentle-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+
+  50% {
+    box-shadow: 0 0 15px 0 rgba(16, 185, 129, 0.15);
+    border-color: rgba(16, 185, 129, 0.3);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+
 }
 
 .gradient-button::after {
   content: "";
   position: absolute;
   inset: 3px;
-  background: #1e293b; /* Mörkblå bakgrund som matchar appen */
-  border-radius: 37px; /* Något mindre än knappens radie */
+  background: #1e293b;
+  /* Mörkblå bakgrund som matchar appen */
+  border-radius: 37px;
+  /* Något mindre än knappens radie */
   z-index: -1;
 }
 
@@ -65,6 +95,7 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }

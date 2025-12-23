@@ -9,8 +9,10 @@ export const isLineTool = (tool: string): tool is 'walkway' | 'fence' | 'constru
 
 // isRectTool ska ENDAST innehålla verktyg som ritas ut som en rektangel av användaren.
 // Färdiga objekt som containrar ska INTE vara med här.
-export const isRectTool = (tool: string): tool is 'text' | 'schakt' => 
+export const isRectTool = (tool: string): tool is 'text' | 'schakt' =>
     ['text', 'schakt'].includes(tool);
+
+export const isTextTool = (tool: string): tool is 'text' => tool === 'text';
 
 
 // isSymbol avgör om ett objekt ska renderas som en enkel ikon i 3D-vyn.
@@ -18,11 +20,13 @@ export const isSymbol = (type: string): boolean => {
     if (!type) return false;
     // Listan innehåller nu bara de objekt som INTE ska vara symboler.
     const nonSymbolTypes: string[] = [
-        'walkway', 'fence', 'construction-traffic', 'pen', 'building', 'zone', 'line', 'gate', 'crane', 
-        'container-10', 'container-30', 'tippcontainer', 'tippcontainer-stangd', 
+        'walkway', 'fence', 'construction-traffic', 'pen', 'building', 'zone', 'line', 'gate', 'crane',
+        'container-10', 'container-30', 'tippcontainer', 'tippcontainer-stangd',
         'bygg-bod', 'kontor', // SiteShedObject
         'belysningsmast', // LightingMastObject
-        'såg-bod', 'armerings-station' // GenericWorkshopObject
+        'såg-bod', 'armerings-station', // GenericWorkshopObject
+        'hiss', 'wc', // Etablering
+        'upplag', 'lossning', 'vandplan', 'infart', 'parkering' // Logistik / GroundMarking
     ];
     return !nonSymbolTypes.includes(type) && !type.startsWith('zone_');
 };
@@ -86,6 +90,7 @@ export interface APDObject {
     height3d?: number;
     elevation?: number;
     rotation3d?: { x: number; y: number; z: number };
+    floorLabel?: string;
 }
 
 export interface CustomLegendItem {
@@ -98,9 +103,11 @@ export interface ProjectInfo {
     company: string;
     projectName: string;
     projectId: string;
-    author: string, 
-    date: string, 
-    revision: string
+    author: string,
+    date: string,
+    revision: string,
+    projectNumber?: string; // B-2: Lagt till för projektnummer
+    address?: string; // Added for PrintLayout
 }
 
 export interface LibraryCategory {

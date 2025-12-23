@@ -2,6 +2,8 @@
 import { ProjectInfo, CustomLegendItem } from '../types';
 
 export const defaultProjectInfo: ProjectInfo = {
+    company: 'Mitt Företag AB',
+    projectId: 'P-12345',
     projectName: 'Nytt ByggPilot Projekt',
     projectNumber: '12345',
     author: 'ByggPilot Användare',
@@ -10,5 +12,5 @@ export const defaultProjectInfo: ProjectInfo = {
 };
 
 export const defaultCustomLegend: CustomLegendItem[] = [
-    { id: '1', text: 'Exempel på egen symbol', symbol: { type: 'text', content: '★' } },
+    { id: '1', name: 'Exempel på egen symbol', color: '#ff0000' },
 ];

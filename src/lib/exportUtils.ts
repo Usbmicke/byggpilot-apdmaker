@@ -1,7 +1,7 @@
 
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { APDObject, CustomLegendItem, ProjectInfo, isLineTool, isRectTool } from '../types';
+import { APDObject, CustomLegendItem, ProjectInfo, isLineTool, isRectTool, isBuilding } from '../types';
 
 const LEGEND_CONTAINER_ID = 'apd-legend-for-export-container';
 
@@ -13,7 +13,7 @@ const createDrawingToolIcon = (item: any): string => {
 
     let svgContent = '';
 
-    if (isRectTool(item.type)) {
+    if (isRectTool(item.type) || isBuilding({ type: item.type } as APDObject)) {
         svgContent = `
             <rect 
                 x="3" y="3" 
@@ -24,7 +24,7 @@ const createDrawingToolIcon = (item: any): string => {
                 stroke-width="${strokeWidth}" 
             />
         `;
-    } 
+    }
     else if (isLineTool(item.type)) {
         svgContent = `
             <line 
@@ -70,7 +70,7 @@ const renderLegendToHtml = async (allItems: any[]): Promise<string> => {
         let name = item.name || 'Okänt objekt';
         let quantity = item.quantity ? `${item.quantity} st` : '-';
 
-        if (isLineTool(item.type) || isRectTool(item.type)) {
+        if (isLineTool(item.type) || isRectTool(item.type) || isBuilding({ type: item.type } as APDObject)) {
             const shapeIcon = createDrawingToolIcon(item);
             iconHtml = `<img src="${shapeIcon}" style="width: 32px; height: 16px; display: block;" />`;
         } else if (item.iconUrl) {
@@ -103,7 +103,7 @@ const renderLegendToHtml = async (allItems: any[]): Promise<string> => {
 
 const getCanvasFromHtml = (container: HTMLElement): Promise<HTMLCanvasElement> => {
     return html2canvas(container.querySelector<HTMLElement>(`#${LEGEND_CONTAINER_ID}`)!, {
-        scale: 3, 
+        scale: 3,
         useCORS: true,
         backgroundColor: '#ffffff'
     });
@@ -157,7 +157,7 @@ export const exportPlan = async (format: 'jpeg' | 'pdf', config: ExportConfig): 
             link.click();
             return { status: 'success', message: 'Exporten är klar.' };
         }
-        
+
         // --- PDF Generation ---
         document.body.appendChild(container);
         container.innerHTML = await renderLegendToHtml(allLegendItems);
@@ -189,13 +189,13 @@ export const exportPlan = async (format: 'jpeg' | 'pdf', config: ExportConfig): 
         const legendWidth = 55;
         const spaceBetween = 5;
         const drawingAreaWidth = pdfWidth - legendWidth - (pageMargin * 2) - spaceBetween;
-        const drawingAreaHeight = pdfHeight - (pageMargin * 2) - 20; 
+        const drawingAreaHeight = pdfHeight - (pageMargin * 2) - 20;
 
         // REFAKTORERING: Använd `image`-objektet för skalning
         const scale = Math.min(drawingAreaWidth / image.width, drawingAreaHeight / image.height);
         const finalDrawingWidth = image.width * scale;
         const finalDrawingHeight = image.height * scale;
-        
+
         const drawingX = pageMargin + (drawingAreaWidth - finalDrawingWidth) / 2;
         const drawingY = pageMargin + 20 + (drawingAreaHeight - finalDrawingHeight) / 2;
 

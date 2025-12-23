@@ -18,7 +18,7 @@ const LegendForPrint: React.FC<LegendForPrintProps> = ({ projectInfo, objects, c
         }
         acc[key].quantity += obj.quantity || 1;
         return acc;
-    }, {} as { [key: string]: any });
+    }, {} as Record<string, APDObject>);
 
     const allItems = Object.values(groupedObjects).map(item => {
         const ReactIcon = findIcon(item.type);
@@ -28,8 +28,8 @@ const LegendForPrint: React.FC<LegendForPrintProps> = ({ projectInfo, objects, c
             // Create a visually accurate SVG for line tools
             iconDisplay = (
                 <svg width="24" height="12" viewBox="0 0 24 12" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
-                    <line 
-                        x1="0" y1="6" x2="24" y2="6" 
+                    <line
+                        x1="0" y1="6" x2="24" y2="6"
                         stroke={item.stroke || '#000'}
                         strokeWidth={item.strokeWidth ? item.strokeWidth / 2 : 2} // Scale down for legend
                         strokeDasharray={item.dash ? item.dash.join(' ') : 'none'}
@@ -38,16 +38,17 @@ const LegendForPrint: React.FC<LegendForPrintProps> = ({ projectInfo, objects, c
             );
         } else if (item.item?.iconUrl) {
             // Use the image if available
-            iconDisplay = <img src={item.item.iconUrl} alt={item.name} style={{ height: '1.2em', marginRight: '0.5em', verticalAlign: 'middle' }} />;
+            iconDisplay = <img src={item.item.iconUrl} alt={item.item.name} style={{ height: '1.2em', marginRight: '0.5em', verticalAlign: 'middle' }} />;
         } else if (ReactIcon) {
-             // Fallback to React-based icon from library
-             iconDisplay = <span style={{ marginRight: '0.5em', verticalAlign: 'middle', display: 'inline-flex' }}>{ReactIcon}</span>
+            // Fallback to React-based icon from library
+            iconDisplay = <span style={{ marginRight: '0.5em', verticalAlign: 'middle', display: 'inline-flex' }}>{ReactIcon}</span>
         } else {
             // Generic fallback for things like 'schakt'
             iconDisplay = <span style={{ display: 'inline-block', width: '0.8em', height: '0.8em', backgroundColor: item.fill || 'gray', marginRight: '0.5em', verticalAlign: 'middle' }}></span>;
         }
 
         return {
+            id: item.item.id || item.type, // Pass ID for filtering
             name: item.item.name, // Ensure we use the correct item name
             quantity: item.quantity,
             icon: iconDisplay
@@ -79,7 +80,7 @@ const LegendForPrint: React.FC<LegendForPrintProps> = ({ projectInfo, objects, c
         <div style={{ padding: '5mm', height: '100%', display: 'flex', flexDirection: 'column', fontFamily: 'sans-serif' }}>
             <div style={{ flexShrink: 0, marginBottom: '5mm', borderBottom: '0.5px solid #333', paddingBottom: '3mm' }}>
                 <h3 style={{ fontSize: '6mm', margin: 0, fontWeight: 'bold' }}>PROJEKTINFORMATION</h3>
-                 <p style={{ fontSize: '4mm', margin: '2mm 0 0 0' }}><strong>Företag:</strong> {projectInfo.company || '-'}</p>
+                <p style={{ fontSize: '4mm', margin: '2mm 0 0 0' }}><strong>Företag:</strong> {projectInfo.company || '-'}</p>
                 <p style={{ fontSize: '4mm', margin: '2mm 0 0 0' }}><strong>Projekt:</strong> {projectInfo.projectName || '-'}</p>
                 <p style={{ fontSize: '4mm', margin: '2mm 0 0 0' }}><strong>Projektnummer:</strong> {projectInfo.projectId || '-'}</p>
                 <p style={{ fontSize: '4mm', margin: '2mm 0 0 0' }}><strong>Ritad av:</strong> {projectInfo.author || '-'}</p>

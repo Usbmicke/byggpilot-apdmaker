@@ -11,12 +11,15 @@ interface CraneObjectProps {
 const CraneObject = forwardRef<any, CraneObjectProps>(({ obj, ...props }, ref) => {
 
     // STABLE FIX: Crane's visual representation is now directly and solely driven by obj.radius
-    const armLength = obj.radius || 100;
-    
-    // Detailed dimensions based on the primary armLength property
+    // STABLE FIX: Crane's visual representation is now directly and solely driven by obj.radius (meters) * scale (px/m)
+    // Default radius of 45 meters * scale. If scale not provided, fallback to 1 (which means 45px, likely too small/wrong but safe)
+    const pxScale = props.scale || 1;
+    const armLength = (obj.radius || 45) * pxScale;
+
+    // Detailed dimensions based on realistic sizes (meters) * pxScale
     const counterWeightLength = armLength * 0.3;
-    const towerWidth = Math.min(armLength * 0.1, 20);
-    const armWidth = towerWidth * 0.8;
+    const towerWidth = 2.0 * pxScale; // Fixed 2m width for tower
+    const armWidth = 1.2 * pxScale; // Fixed 1.2m width for arm
 
     return (
         <Group {...props} ref={ref}>

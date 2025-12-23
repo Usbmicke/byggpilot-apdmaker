@@ -26,7 +26,7 @@ const VattenIcon = () => <SvgIcon svg={VattenSVG} />;
 const LjusmastIcon = () => <SvgIcon svg={LjusmastSVG} />;
 const GasIcon = () => <SvgIcon svg={GasSVG} />;
 
-const UNIFORM_SIZE = { width: 50, height: 50 };
+const UNIFORM_SIZE = { width: 1.0, height: 1.0 };
 
 // --- Category Export ---
 export const utrustningCategory: { name: string; items: LibraryItem[] } = {
@@ -39,8 +39,9 @@ export const utrustningCategory: { name: string; items: LibraryItem[] } = {
             icon: <CraneIcon />,
             iconUrl: createIcon(KranSVG),
             initialProps: {
-                ...UNIFORM_SIZE,
-                radius: 25,
+                width: 1.0,
+                height: 1.0,
+                radius: 30,
             }
         },
         { id: 'el-std', type: 'elcentral', name: 'Elcentral', icon: <ElcentralIcon />, iconUrl: createIcon(ElcentralSVG), initialProps: UNIFORM_SIZE },

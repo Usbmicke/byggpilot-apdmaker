@@ -1,9 +1,11 @@
 
 import React, { Suspense, useMemo, useRef, useEffect, forwardRef, useImperativeHandle, useState } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
-import { Sky, OrbitControls, Plane, GizmoHelper, GizmoViewport, useTexture, TransformControls, Text } from '@react-three/drei';
+import { Sky, OrbitControls, Plane, GizmoHelper, GizmoViewport, useTexture, TransformControls, Text, SoftShadows, Grid } from '@react-three/drei';
 import * as THREE from 'three';
 import { useDrop } from 'react-dnd';
+import { EffectComposer, SSAO, Bloom } from '@react-three/postprocessing';
+import { BlendFunction } from 'postprocessing';
 import { APDObject, LibraryCategory, LibraryItem, isBuilding, isSchakt, isSymbol, isFence, isCrane, isGate, isWalkway, isConstructionTraffic, isPen, isLine, isZone } from '../../types';
 
 import CameraManager from './CameraManager';
@@ -108,41 +110,72 @@ const SelectionOverlay = ({ selectedId, objects, onChange }: { selectedId: strin
     );
 };
 
-const ThreeDObject = ({ obj, item, background, onSelect, isSelected, onChange, scale, objects }: { obj: APDObject, item: LibraryItem | undefined, background: any, onSelect: (id: string | null) => void, isSelected: boolean, onChange: (id: string, attrs: Partial<APDObject>) => void, scale: number, objects: APDObject[] }) => {
-    // Helper to determine if object should snap/rotate around its Center or its Top-Left/Origin.
-    // Point-based objects (Buildings, Fences, Lines) usually have specific point data relative to an origin, so we keep them as-is.
-    // Fixed-size objects (Cranes, Sheds, Containers, Gates) should pivot around their center for correct rotation.
-    const shouldPivotCenter = (obj: APDObject) => {
-        const type = obj.type;
-        // Exclude everything that has 'points' property effectively OR explicit Top-Left origin models
-        if (isFence(obj) || isLine(obj) || isPen(obj) || isWalkway(obj) || isConstructionTraffic(obj) || isBuilding(obj) || isZone(obj) || isSchakt(obj) || isGate(obj)) {
-            return false;
-        }
-        return true;
+const ThreeDObject = ({ obj, item, background, onSelect, isSelected, onChange, scale, objects }: { obj: APDObject, item: LibraryItem | undefined, background: { url: string; width: number; height: number; } | null, onSelect: (id: string | null) => void, isSelected: boolean, onChange: (id: string, attrs: Partial<APDObject>) => void, scale: number, objects: APDObject[] }) => {
+    // Standardizing Pivot Logic:
+    // 2D Canvas Origin: Top-Left of the bounding box.
+    // 3D Scene Origin: Center-Bottom of the model (typical for game assets).
+    //
+    // Rule:
+    // 1. Point-Based Objects (Buildings, Fences, Lines, Polygons):
+    //    Their geometry is constructed relative to (0,0) which matches the 2D "Start Point".
+    //    We should NOT offset them. Their 3D origin = 2D origin.
+    //
+    // 2. Fixed-Size/Box Objects (Sheds, Containers, Cranes, Gates, Symbols):
+    //    Their 2D (x, y) is Top-Left.
+    //    Their 3D model is centered at (0,0,0).
+    //    We MUST offset the 3D position by (+width/2, +height/2) to align centers.
+
+    const isPointBased = (obj: APDObject) => {
+        return (
+            isFence(obj) ||
+            isLine(obj) ||
+            isPen(obj) ||
+            isWalkway(obj) ||
+            isConstructionTraffic(obj) ||
+            isBuilding(obj) ||
+            isZone(obj) ||
+            isSchakt(obj) ||
+            isGate(obj) ||
+            obj.type === 'polygon'
+        );
     };
 
-    const isCenterPivot = shouldPivotCenter(obj);
-    const widthOffset = isCenterPivot ? (obj.width || 0) / 2 : 0;
-    const heightOffset = isCenterPivot ? (obj.height || 0) / 2 : 0;
+    const isCenteredModel = !isPointBased(obj);
 
-    // DEFINITIVE FIX: The group for EVERY object is positioned at the object's (x, y) origin.
-    // For Center-Pivot objects, we shift the 3D position by half-width/height so the 3D model (which is centered at 0,0) aligns with the 2D Center.
-    const positionX = (obj.x + widthOffset - background.width / 2) * scale;
-    // FIX: Z-axis is positive downwards (matches 2D Y-axis direction).
-    const positionZ = (obj.y + heightOffset - background.height / 2) * scale;
-    // Use elevation for Y, default to 0 if not present. Elevation is in meters (likely), coordinate system might be different.
-    const positionY = (obj.elevation || 0); // Elevation (Y-up)
-    // FIX: Negate rotation because 2D (CW) != 3D (CCW Y-Axis)
+    // If it's a centered model, we offset the position by half its dimensions
+    // to translate from Top-Left (2D anchor) to Center (3D anchor).
+    const widthOffset = isCenteredModel ? (obj.width || 0) / 2 : 0;
+    const heightOffset = isCenteredModel ? (obj.height || 0) / 2 : 0;
+
+    // DEFINITIVE COORDINATE MAPPING:
+    // 2D Origin: Top-Left (obj.x, obj.y)
+    // 2D Rotation: Pivots around Top-Left.
+    // 3D Logic:
+    // To match 2D, the 3D Group must be at `obj.x, obj.y` (Top-Left).
+    // The Mesh (which is centered at 0,0) must then be shifted by +HalfSize to sit "inside" the bounding box correctly.
+    // Result: Pivot (Group Origin) = Top-Left. Visual Center = Top-Left + HalfSize.
+
+    const positionX = (obj.x - background!.width / 2) * scale;
+    const positionZ = (obj.y - background!.height / 2) * scale;
+
+    const positionY = (obj.elevation || 0);
     const rotationY = -THREE.MathUtils.degToRad(obj.rotation || 0);
+
+    // Inner Offset to move Centered Mesh to correct position relative to Top-Left Pivot
+    // Only for "Box" models. Point-based models (Fence, Gate) handle their own geometry/offsets.
+    const meshOffsetX = isCenteredModel ? (obj.width || 0) * scale / 2 : 0;
+    // FIX: Z offset should also use scale if we want it to match 2D geometry perfectly?
+    // obj.height is pixels. scale is m/px. so obj.height * scale is meters.
+    // Yes.
+    const meshOffsetZ = isCenteredModel ? (obj.height || 0) * scale / 2 : 0;
 
     const groupRef = useRef<THREE.Group>(null);
 
     const renderSpecificObject = () => {
         // Pass isSelected to PolygonObject for blue frame
         if (isBuilding(obj)) return <PolygonObject obj={obj} scale={scale} isSelected={isSelected} />;
-        // ... (rest same) ...
-        if (obj.type.startsWith('zone_') || isSchakt(obj)) return <GroundMarkingObject obj={obj} item={item} scale={scale} />;
-        if (isFence(obj)) return <FenceObject obj={obj} scale={scale} objects={objects} />; // Pass objects for gate cutting
+        if (obj.type.startsWith('zone_') || isSchakt(obj) || obj.type === 'polygon') return <GroundMarkingObject obj={obj} item={item} scale={scale} />;
+        if (isFence(obj)) return <FenceObject obj={obj} scale={scale} objects={objects} />;
         if (isWalkway(obj) || isConstructionTraffic(obj)) return <PathObject obj={obj} item={item} scale={scale} />;
         if (isPen(obj) || isLine(obj)) return <LineObject obj={obj} item={item} scale={scale} />;
 
@@ -181,7 +214,10 @@ const ThreeDObject = ({ obj, item, background, onSelect, isSelected, onChange, s
                 rotation={[0, rotationY, 0]}
                 onClick={(e) => { e.stopPropagation(); onSelect(obj.id); }}
             >
-                {renderSpecificObject()}
+                {/* Apply Offset for Centered Models so they pivot around corner */}
+                <group position={[meshOffsetX, 0, meshOffsetZ]}>
+                    {renderSpecificObject()}
+                </group>
                 {/* 3D Handles removed in favor of 2D Overlay */}
             </group>
             {isSelected && (
@@ -197,9 +233,9 @@ const ThreeDObject = ({ obj, item, background, onSelect, isSelected, onChange, s
                                 const newX3D = groupRef.current.position.x;
                                 const newZ3D = groupRef.current.position.z;
 
-                                const finalX = (newX3D / scale) + background.width / 2;
+                                const finalX = (newX3D / scale) + background!.width / 2;
                                 // FIX: Inverse of Z calculation above
-                                const finalY = (newZ3D / scale) + background.height / 2;
+                                const finalY = (newZ3D / scale) + background!.height / 2;
 
                                 // FORCE Y to original elevation to prevent drift if bug
                                 groupRef.current.position.y = positionY;
@@ -214,20 +250,48 @@ const ThreeDObject = ({ obj, item, background, onSelect, isSelected, onChange, s
     );
 };
 
-const BackgroundPlane = React.memo(({ background, scale }: { background: any, scale: number }) => {
+const BackgroundPlane = React.memo(({ background, scale }: { background: { url: string; width: number; height: number; }, scale: number }) => {
+    // FIX: Removed conditional return to prevent Hook Violation.
+    // Parent MUST ensure background.url is valid before mounting this.
     const texture = useTexture(background.url) as THREE.Texture;
     const planeWidth = background.width * scale;
     const planeHeight = background.height * scale;
 
     useEffect(() => {
+        // Enforce texture to be somewhat sharp but not pixelated
+        if (texture) {
+            texture.anisotropy = 16;
+            texture.minFilter = THREE.LinearFilter;
+            texture.magFilter = THREE.LinearFilter;
+        }
         return () => { if (texture && 'dispose' in texture) texture.dispose(); }
     }, [texture]);
 
 
     return (
-        <Plane args={[planeWidth, planeHeight]} position={[0, -0.01, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-            <meshStandardMaterial map={texture} />
-        </Plane>
+        <group>
+            {/* The Drawing Itself - Slightly Offset up to avoid z-fighting with Infinite Ground */}
+            <Plane args={[planeWidth, planeHeight]} position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+                <meshStandardMaterial map={texture} transparent={true} opacity={1} />
+            </Plane>
+
+            {/* Infinite Ground Plane (Dark Asphalt / Neutral) */}
+            <Grid
+                position={[0, -0.01, 0]}
+                args={[1000, 1000]}
+                cellSize={10}
+                cellThickness={0.5}
+                cellColor="#262626"
+                sectionSize={50}
+                sectionThickness={1}
+                sectionColor="#404040"
+                fadeDistance={400}
+                infiniteGrid={true}
+            />
+            <Plane args={[2000, 2000]} position={[0, -0.02, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+                <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
+            </Plane>
+        </group>
     );
 });
 
@@ -238,13 +302,24 @@ const SceneContent = (props: Omit<ThreeDViewProps, 'setIsLocked' | 'onAddObject'
     return (
         <>
             <CameraManager background={background} scale={scale} />
-            <Sky sunPosition={[100, 20, 100]} />
-            <ambientLight intensity={0.7} />
-            <directionalLight position={[100, 200, 100]} intensity={1.5} castShadow />
+            <Sky sunPosition={[100, 40, 50]} turbidity={0.5} rayleigh={0.5} />
+            <ambientLight intensity={0.4} />
+            {/* Improved Sun Light for Shadows */}
+            <directionalLight
+                position={[50, 80, 50]}
+                intensity={1.2}
+                castShadow
+                shadow-mapSize-width={2048}
+                shadow-mapSize-height={2048}
+                shadow-bias={-0.0005}
+            >
+                <orthographicCamera attach="shadow-camera" args={[-200, 200, 200, -200]} />
+            </directionalLight>
 
             <group>
                 <Suspense fallback={null}>
-                    {background && <BackgroundPlane background={background} scale={scale} />}
+                    {/* SAFEGUARD: Only render BackgroundPlane if URL is present */}
+                    {background && background.url && <BackgroundPlane background={background} scale={scale} />}
                     {objects.map(obj => (
                         <ThreeDObject
                             key={obj.id}
@@ -258,10 +333,27 @@ const SceneContent = (props: Omit<ThreeDViewProps, 'setIsLocked' | 'onAddObject'
                             objects={objects}
                         />
                     ))}
+
+                    {/* PRO VISUALS: Post Processing */}
+                    <EffectComposer disableNormalPass={false} multisampling={0}>
+                        <SSAO
+                            blendFunction={BlendFunction.MULTIPLY}
+                            samples={30}
+                            radius={0.05} // Smaller radius for contact shadows
+                            intensity={15} // Stronger intensity
+                            luminanceInfluence={0.5}
+                            color={undefined}
+                            worldDistanceThreshold={undefined}
+                            worldDistanceFalloff={undefined}
+                            worldProximityThreshold={undefined}
+                            worldProximityFalloff={undefined}
+                        />
+                        <Bloom intensity={0.2} luminanceThreshold={0.9} radius={0.5} />
+                    </EffectComposer>
                 </Suspense>
             </group>
 
-            <OrbitControls makeDefault enabled={!selectedId} />
+            <OrbitControls makeDefault enabled={!selectedId} maxPolarAngle={Math.PI / 2.1} />
 
             <GizmoHelper alignment="bottom-right" margin={[80, 80]}>
                 <GizmoViewport axisColors={['#ff4040', '#40ff40', '#4040ff']} labelColor="white" />
@@ -374,7 +466,7 @@ const RaycastHelper = forwardRef((_, ref) => {
 });
 
 const ThreeDView = forwardRef<ThreeDViewHandles, ThreeDViewProps>((props, ref) => {
-    const captureRef = useRef<any>();
+    const captureRef = useRef<{ capture: () => { url: string; width: number; height: number; } | null }>(null);
     const internalRef = useRef<{ handleDrop: (x: number, y: number) => THREE.Vector3 | null }>(null);
 
     const [{ isOver }, drop] = useDrop(() => ({
@@ -411,6 +503,8 @@ const ThreeDView = forwardRef<ThreeDViewHandles, ThreeDViewProps>((props, ref) =
                 dpr={[1, 1.5]}
                 onPointerMissed={() => props.onSelect(null)}
             >
+                {/* Soft Shadows for Realism */}
+                <SoftShadows size={10} samples={10} focus={0.5} />
                 <RaycastHelper ref={internalRef} />
                 <SceneContent {...props} />
                 <CaptureController ref={captureRef} />

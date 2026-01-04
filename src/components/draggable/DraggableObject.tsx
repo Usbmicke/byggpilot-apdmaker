@@ -11,6 +11,8 @@ import {
     isFence
 } from '../../types/index';
 import CraneObject from '../canvas/CraneObject';
+import { calculateStacking } from '../../utils/stacking';
+import { calculateVisualSegments } from '../../utils/geometry';
 
 interface DraggableObjectProps {
     obj: APDObject;
@@ -18,14 +20,14 @@ interface DraggableObjectProps {
     isSelected: boolean;
     onSelect: (e: any) => void;
     onChange: (attrs: Partial<APDObject>, immediate: boolean) => void;
-    onChange: (attrs: Partial<APDObject>, immediate: boolean) => void;
+    onDelete?: () => void;
     isDrawing: boolean;
     scale?: number;
 }
 
 const SAFE_DIMENSION = 25;
 
-const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, objects, isSelected, onSelect, onChange, isDrawing, scale = 1 }) => {
+const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, objects, isSelected, onSelect, onChange, onDelete, isDrawing, scale = 1 }) => {
     const shapeRef = useRef<any>();
 
     const width = obj.width || obj.item?.width || SAFE_DIMENSION;
@@ -40,8 +42,34 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, objects, isSelec
         const target = e.target;
         let bestX = target.x();
         let bestY = target.y();
-        const width = obj.width || obj.item?.width || SAFE_DIMENSION;
-        const height = obj.height || obj.item?.height || SAFE_DIMENSION;
+
+        // Calculate REAL dimensions for snapping logic
+        let effectiveWidth = obj.width || obj.item?.width || SAFE_DIMENSION;
+        let effectiveHeight = obj.height || obj.item?.height || SAFE_DIMENSION;
+
+        // If Line/Fence, calculate bounding box from points
+        if ((isLineTool(obj.type) || obj.type === 'fence' || obj.type === 'staket') && obj.points) {
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            for (let i = 0; i < obj.points.length; i += 2) {
+                if (obj.points[i] < minX) minX = obj.points[i];
+                if (obj.points[i] > maxX) maxX = obj.points[i];
+                if (obj.points[i + 1] < minY) minY = obj.points[i + 1];
+                if (obj.points[i + 1] > maxY) maxY = obj.points[i + 1];
+            }
+            if (minX !== Infinity) {
+                effectiveWidth = maxX - minX;
+                effectiveHeight = maxY - minY;
+                // Note: This bounding box is relative to the object origin. 
+                // Snapping logic below assumes width/height extends from (x,y).
+                // For Lines, (x,y) is origin, but content might be offset (minX, minY).
+                // This complicates Edge Snapping for Lines.
+                // Ideally, we DISABLE Edge Snapping for Lines unless we account for minX/minY offset.
+            }
+        }
+
+        // For simplicity: Use updated effective dimensions, but strictly disable edge snapping for Lines to avoid jumping.
+        const width = effectiveWidth;
+        const height = effectiveHeight;
 
         // Gate Snapping Logic (Snap to Fences)
         if (isGate(obj) && objects) {
@@ -142,8 +170,9 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, objects, isSelec
 
         // Stacking "Magnet" Logic (Snap to Building/Shed Centers/Corners)
         if (!isGate(obj) && objects) {
-            // Hiss Logic: Snap to Building Walls
-            if (obj.type === 'hiss') {
+            // Hiss & Skylt Logic: Snap to Building Walls
+            // QA FIX: Enable snapping for 'hiss' (elevator) and 'skylt' (sign)
+            if (obj.type === 'hiss' || obj.type === 'skylt' || (obj.item?.name?.toLowerCase() || '').includes('skylt')) {
                 const centerX = bestX + width / 2;
                 const centerY = bestY + height / 2;
                 const snapThreshold = 30; // Stronger magnet for hiss
@@ -154,7 +183,8 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, objects, isSelec
                 let matchedBuildingHeight = null;
 
                 objects.forEach((other) => {
-                    if (other.type === 'building' && other.points && other.points.length >= 4) {
+                    // Snap to 'building' or 'bod' (sheds)
+                    if ((other.type === 'building' || other.type.includes('bod')) && other.points && other.points.length >= 4) {
                         // Iterate building segments
                         for (let i = 0; i < other.points.length - 2; i += 2) {
                             const p1x = other.x + other.points[i];
@@ -247,6 +277,11 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, objects, isSelec
 
                 objects.forEach((other) => {
                     if (other.id === obj.id) return;
+
+                    // DISABLE Edge Snapping for Line/Fence/Pen objects being dragged
+                    // Their bounding box is complex and usually user doesn't want to snap the whole fence to a shed side.
+                    if (isLineTool(obj.type)) return;
+
                     const isBase = other.type === 'building' || other.type.includes('bod') || other.type.includes('container') || other.type === 'kontor' || other.type === 'shed' || other.type === 'office';
                     if (!isBase) return;
 
@@ -386,11 +421,18 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, objects, isSelec
         const y = e.target.y();
         const rotation = e.target.rotation(); // Capture new rotation
 
-        // Hiss Smart Height Logic
+        // Hiss & Skylt Smart Height Logic
         let finalHeight3d = obj.height3d;
-        if (obj.type === 'hiss' && e.target.attrs.tempHeight3d) {
+        if ((obj.type === 'hiss' || obj.type === 'skylt' || (obj.item?.name?.toLowerCase() || '').includes('skylt')) && e.target.attrs.tempHeight3d) {
             finalHeight3d = e.target.attrs.tempHeight3d;
-            // Clear temp
+            // For Signs, we might want to be at the TOP of the building + pole height?
+            // Currently tempHeight3d is the building height.
+            // SignObject in 3D uses position Y.
+            // If we set 'height3d' on the object, we need to ensure ThreeDView/models.tsx uses it.
+            // Actually, `ThreeDObject` handles `elevation`.
+            // Let's assume `tempHeight3d` is intended to be the ELEVATION (Z-height).
+
+            // Clean up
             e.target.attrs.tempHeight3d = undefined;
         }
 
@@ -399,64 +441,51 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, objects, isSelec
         let newFloorLabel = undefined; // Undefined means "remove existing label" if moved off
 
         if (objects && obj.type !== 'hiss') {
-            // Find if we dropped ON TOP of another object (Stacking)
-            // We check center point of dragged object
-            const cx = x + width / 2;
-            const cy = y + height / 2;
+            // New Robust Logic - Use Shared Utility
+            // This ensures logic matches "Drop" behavior exactly
+            const dropWidth = width;
+            const dropHeight = height;
 
-            for (const other of objects) {
-                if (other.id === obj.id) continue;
+            newElevation = calculateStacking(
+                x,
+                y,
+                dropWidth,
+                dropHeight,
+                objects.filter(o => o.id !== obj.id) // Exclude self
+            );
 
-                // Only stack on substantial objects (Buildings, Sheds, Containers)
-                // We can check types or assume anything "large" is a base.
-                const isBaseObject = other.type === 'building' || other.type.includes('bod') || other.type.includes('container') || other.type === 'kontor' || other.type === 'shed' || other.type === 'office';
+            // Re-implement the Prompt for Floor Label if we are stacking high up
+            if (newElevation > 0.5 && (!obj.floorLabel || obj.floorLabel === '')) {
+                const input = window.prompt("Ange våningsplan:\n\nPlan 0 = Marknivå\nPlan 1 = En våning upp\nPlan 2 = Två våningar upp\n\nSkriv t.ex. 'Plan 1'", "Plan 1");
+                if (input !== null) {
+                    newFloorLabel = input;
+                }
+            } else if (newElevation < 0.1 && obj.floorLabel) {
+                // If moved to ground, maybe clear label? optional.
+                // Let's keep it to avoid annoyance.
+            }
+        }
 
-                if (!isBaseObject) continue;
-
-                const otherWidth = other.width || other.item?.width || SAFE_DIMENSION;
-                const otherHeight = other.height || other.item?.height || SAFE_DIMENSION;
-
-                if (cx > other.x && cx < other.x + otherWidth &&
-                    cy > other.y && cy < other.y + otherHeight) {
-
-                    // Stack on top!
-                    const otherElevation = other.elevation || 0;
-
-
-                    // FIX: Calculate true 3D height based on scale if height3d is not set
-                    let stackHeight = other.height3d;
-
-                    if (!stackHeight) {
-                        if (other.type.includes('bod') || other.type.includes('kontor') || other.type.includes('shed') || other.type.includes('office')) {
-                            // Logic from models.tsx SiteShedObject
-                            const w = (other.width || other.item?.width || SAFE_DIMENSION) * scale;
-                            const h = (other.height || other.item?.height || SAFE_DIMENSION) * scale;
-                            const longLen = Math.max(w, h);
-
-                            // Height logic: max(0.5, longLen * 0.35)
-                            stackHeight = Math.max(0.5, longLen * 0.35);
-                        } else if (other.type.includes('container')) {
-                            // Logic from models.tsx ContainerObject
-                            stackHeight = 2.6; // Standard
-                        } else {
-                            stackHeight = 3.0; // Default fallback
-                        }
-                    }
-
-                    newElevation = otherElevation + stackHeight;
-
-                    // Trigger prompt for Floor/Level with clearer instructions
-                    const input = window.prompt("Ange våningsplan:\n\nPlan 0 = Marknivå\nPlan 1 = En våning upp\nPlan 2 = Två våningar upp\n\nSkriv t.ex. 'Plan 1'", obj.floorLabel || "Plan 1");
-
-                    if (input !== null) {
-                        newFloorLabel = input;
-                    } else {
-                        // Cancelled prompt -> Keep old one
-                        newFloorLabel = obj.floorLabel;
-                    }
-
-                    // Break after finding the top-most (or first) valid base
-                    break;
+        // --- TRASH CAN DELETE CHECK ---
+        // Check if dropped near the top of the viewport (Trash Area)
+        // We use the raw event client coordinates
+        // Assuming Trash Can is at Top Center, within top 100px.
+        const stage = e.target.getStage();
+        if (stage) {
+            const pointer = stage.getPointerPosition();
+            // Pointer is relative to stage container? No, usually relative to stage top-left.
+            // But if stage is scrolled/panned?
+            // Safer: Use window coordinates if available or assume fixed stage.
+            // Let's rely on standard logic: If drag ends near top of VISIBLE screen.
+            // Since we don't have easy access to DOM overlay refs here, we'll use a heuristic.
+            // A better way: check `e.evt.clientY` (DOM event Y).
+            // Trash area: Top 100px.
+            const clientY = e.evt?.clientY;
+            if (clientY !== undefined && clientY < 100) {
+                // Trigger Delete
+                if (onDelete && window.confirm("Ta bort objekt?")) {
+                    onDelete();
+                    return; // Skip update
                 }
             }
         }
@@ -465,6 +494,18 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, objects, isSelec
     };
 
     // NOTE: onTransformEnd is now handled by CanvasPanel's Transformer
+
+    // Visuals: Selection Frame Props
+    const selectionFrameProps = {
+        x: -2,
+        y: -2,
+        width: width + 4,
+        height: height + 4,
+        stroke: "#2196f3",
+        strokeWidth: 2,
+        dash: [5, 5],
+        listening: false
+    };
 
     const commonProps = {
         id: obj.id,
@@ -503,21 +544,86 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, objects, isSelec
 
     if (isLineTool(obj.type)) {
         if (!obj.points || obj.points.length < 2) return null;
+
+        // Calculate Bounding Box of points
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (let i = 0; i < obj.points.length; i += 2) {
+            const px = obj.points[i];
+            const py = obj.points[i + 1];
+            if (px < minX) minX = px;
+            if (px > maxX) maxX = px;
+            if (py < minY) minY = py;
+            if (py > maxY) maxY = py;
+        }
+
+        const bWidth = maxX - minX;
+        const bHeight = maxY - minY;
+
+        const lineSelectionProps = {
+            x: minX - 5,
+            y: minY - 5,
+            width: bWidth + 10,
+            height: bHeight + 10,
+            stroke: "#2196f3", // Blue
+            strokeWidth: 2,
+            dash: [5, 5],
+            listening: false
+        };
+
+        // Determine segments (with cuts for Gates)
+        // Similar to 3D, transform Gates to local space
+        let visualSegments = null;
+        if (obj.type === 'fence' || obj.type === 'staket') {
+            const gates = objects ? objects.filter(o => isGate(o)) : [];
+            const localGates = gates.map(g => ({
+                ...g,
+                x: g.x - obj.x,
+                y: g.y - obj.y
+            }));
+
+            visualSegments = calculateVisualSegments(obj.points, localGates, scale || 1);
+        }
+
         return (
-            <Line
-                {...commonProps}
-                points={obj.points}
-                stroke={obj.stroke || '#000000'}
-                strokeWidth={obj.strokeWidth || 2}
-                dash={obj.dash}
-                tension={isPen(obj) ? 0.5 : 0}
-                lineCap="round"
-                lineJoin="round"
-                fill={obj.fill}
-                closed={obj.type === 'polygon' || obj.type === 'building' || obj.type === 'zone'} // Auto-close shapes for buildings
-                opacity={obj.type === 'building' ? 0.8 : 1}
-                perfectDrawEnabled={false} // Optimization and crash prevention
-            />
+            <Group {...commonProps}>
+                {isSelected && <Rect {...lineSelectionProps} />}
+
+                {/* Visual Segments (Fences with Gaps) */}
+                {visualSegments ? (
+                    visualSegments.map((seg, idx) => (
+                        <Line
+                            key={idx}
+                            points={[seg.p1.x, seg.p1.y, seg.p2.x, seg.p2.y]}
+                            stroke={obj.stroke || '#000000'}
+                            strokeWidth={obj.strokeWidth || 2}
+                            dash={obj.dash}
+                            tension={0} // Fences are straight
+                            lineCap="round"
+                            lineJoin="round"
+                            fill={obj.fill}
+                            opacity={1}
+                            perfectDrawEnabled={false}
+                            hitStrokeWidth={20}
+                        />
+                    ))
+                ) : (
+                    // Default Continuous Line (Paths, Pens, or no-gap Fences)
+                    <Line
+                        points={obj.points}
+                        stroke={obj.stroke || '#000000'}
+                        strokeWidth={obj.strokeWidth || 2}
+                        dash={obj.dash}
+                        tension={isPen(obj) ? 0.5 : 0}
+                        lineCap="round"
+                        lineJoin="round"
+                        fill={obj.fill}
+                        closed={obj.type === 'polygon' || obj.type === 'building' || obj.type === 'zone'}
+                        opacity={obj.type === 'building' ? 0.8 : 1}
+                        perfectDrawEnabled={false}
+                        hitStrokeWidth={20}
+                    />
+                )}
+            </Group>
         );
     }
 
@@ -537,6 +643,7 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, objects, isSelec
 
         return (
             <Group {...commonProps}>
+                {isSelected && <Rect {...selectionFrameProps} />}
                 {isImageValid ? (
                     <KonvaImage image={image} width={width} height={height} />
                 ) : (
@@ -556,10 +663,20 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, objects, isSelec
     }
 
     if (isImageValid) {
-        return <KonvaImage {...commonProps} image={image} width={width} height={height} />;
+        return (
+            <Group {...commonProps}>
+                {isSelected && <Rect {...selectionFrameProps} />}
+                <KonvaImage image={image} width={width} height={height} />
+            </Group>
+        );
     }
 
-    return <Rect {...commonProps} width={width} height={height} fill={obj.fill || '#a0aec0'} stroke={obj.stroke || '#4a5568'} strokeWidth={obj.strokeWidth || 2} perfectDrawEnabled={false} />;
+    return (
+        <Group {...commonProps}>
+            {isSelected && <Rect {...selectionFrameProps} />}
+            <Rect width={width} height={height} fill={obj.fill || '#a0aec0'} stroke={obj.stroke || '#4a5568'} strokeWidth={obj.strokeWidth || 2} perfectDrawEnabled={false} />
+        </Group>
+    );
 };
 
 export default React.memo(DraggableObject);

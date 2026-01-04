@@ -24,6 +24,7 @@ interface UseDrawingProps {
 }
 
 import { calculateFenceSnap } from '../utils/snapping';
+import { calculateStacking } from '../utils/stacking';
 
 export const useDrawing = ({
     stageRef,
@@ -79,6 +80,23 @@ export const useDrawing = ({
                         finalPos.y = snapResult.y;
                         extraProps.rotation = snapResult.rotation;
                     }
+                }
+
+                // Stacking Logic (Elevation)
+                // Calculate appropriate Z-height based on what we are dropping onto
+                const dropWidth = extraProps.width || item.initialProps?.width || 1;
+                const dropHeight = extraProps.height || item.initialProps?.height || 1;
+
+                const newElevation = calculateStacking(
+                    finalPos.x,
+                    finalPos.y,
+                    dropWidth,
+                    dropHeight,
+                    objects
+                );
+
+                if (newElevation > 0.1) {
+                    extraProps.elevation = newElevation;
                 }
 
                 addObject(item, finalPos, extraProps);

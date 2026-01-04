@@ -30,10 +30,10 @@ const WCIcon = () => <SvgIcon svg={WCSVG} />;
 const KontorIcon = () => <SvgIcon svg={KontorIconSVG} />;
 const HissIcon = () => <img src={hissImageUrl} alt="Hiss" style={{ width: '100%', height: '100%' }} />;
 
-const SHED_SIZE = { width: 2.5, height: 1.0 }; // Reduced from 4.0x1.5
+const SHED_SIZE = { width: 8.4, height: 2.9 }; // Standard Swedish Shed Size
 const WC_SIZE = { width: 1.0, height: 1.0 }; // Standard symbol size
 const UNIFORM_SIZE = { width: 1.0, height: 1.0 }; // General default
-const KONTOR_SIZE = { width: 2.5, height: 1.0 }; // Match shed ratio
+const KONTOR_SIZE = { width: 8.4, height: 2.9 }; // Match shed ratio
 
 // --- Category Export ---
 export const etableringCategory: { name: string; items: LibraryItem[] } = {

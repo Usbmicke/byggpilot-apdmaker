@@ -126,7 +126,7 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>((
 
     const handleObjectClick = (e: any) => {
         if (isDrawing) return;
-        const id = e.target.id();
+        const id = e.currentTarget.id(); // UX FIX: Use currentTarget to get the Group ID, not the inner Shape ID
         const isShift = e.evt.shiftKey;
         const newSelectedIds = isShift
             ? (selectedIds.includes(id) ? selectedIds.filter(sid => sid !== id) : [...selectedIds, id])
@@ -241,6 +241,19 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>((
                 <div className="bg-zinc-800 text-white px-3 py-1 rounded shadow text-sm">{Math.round(size.width)} x {Math.round(size.height)} px</div>
             </div>
             <UndoRedoControls undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo} />
+            {/* TRASH CAN OVERLAY */}
+            {/* Visible if something is selected or we act like it's a drop zone */}
+            <div
+                className={`absolute top-4 left-1/2 transform -translate-x-1/2 z-50 transition-all duration-300 ${selectedIds.length > 0 ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-10 pointer-events-none'}`}
+            >
+                <div className="bg-red-500 text-white p-3 rounded-full shadow-lg flex items-center gap-2 border-2 border-white">
+                    {/* Trash Icon */}
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    <span className="font-bold text-sm">Dra hit för att ta bort</span>
+                </div>
+            </div>
             {background && (
                 <Stage
                     ref={stageRef}
@@ -269,6 +282,10 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>((
                                 isSelected={selectedIds.includes(obj.id)}
                                 onSelect={handleObjectClick}
                                 onChange={(attrs, immediate) => updateObject(obj.id, attrs, immediate)}
+                                onDelete={() => {
+                                    removeObjects([obj.id]);
+                                    setSelectedIds([]);
+                                }}
                                 isDrawing={isDrawing || isTransforming}
                                 scale={scale}
                             />

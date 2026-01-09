@@ -1,7 +1,7 @@
 
 import * as pdfjs from 'pdfjs-dist';
 
-pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 interface BackgroundImage {
     url: string;
@@ -59,6 +59,7 @@ export const handlePDF = (file: File): Promise<BackgroundImage> => {
                 const renderContext = {
                     canvasContext: context,
                     viewport: viewport,
+                    canvas,
                 };
 
                 await page.render(renderContext).promise;

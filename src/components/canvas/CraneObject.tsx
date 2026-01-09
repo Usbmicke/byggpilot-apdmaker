@@ -65,6 +65,22 @@ const CraneObject = forwardRef<any, CraneObjectProps>(({ obj, ...props }, ref) =
                 y={-towerWidth / 2}
             />
 
+            {/* Hit Area - Transparent Circle for easier grabbing */}
+            {/* Make it significantly larger than the base (e.g. 6m radius) */}
+            <Circle
+                radius={6 * pxScale} 
+                fill="transparent"
+                listening={true}
+                onMouseEnter={(e: any) => {
+                    const container = e.target.getStage().container();
+                    container.style.cursor = 'move';
+                }}
+                onMouseLeave={(e: any) => {
+                    const container = e.target.getStage().container();
+                    container.style.cursor = 'default';
+                }}
+            />
+
             {/* Hoist Line - Visual indicator, not the true radius line */}
             <Line
                 points={[0, 0, armLength * 0.8, 0]} // A visual line to represent the hoist

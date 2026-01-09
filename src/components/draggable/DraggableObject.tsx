@@ -78,12 +78,12 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, objects, isSelec
             const snapThreshold = 25; // Balanced magnet force (was 60, too strong for small items)
 
             let minDistance = snapThreshold;
-            let snapPos = null;
+            let snapPos: { x: number, y: number } | null = null;
             let snapAngle = null;
 
             objects.forEach((other) => {
                 // Check for 'fence' type or likely fence tools
-                if ((isFence(other) || other.type === 'fence' || other.type === 'staket') && other.points && other.points.length >= 4) {
+                if ((isFence(other) || other.type === 'fence') && other.points && other.points.length >= 4) {
                     for (let i = 0; i < other.points.length - 2; i += 2) {
                         // Absolute coordinates of fence segment
                         // Absolute coordinates of fence segment, accounting for rotation
@@ -175,16 +175,28 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, objects, isSelec
             if (obj.type === 'hiss' || obj.type === 'skylt' || (obj.item?.name?.toLowerCase() || '').includes('skylt')) {
                 const centerX = bestX + width / 2;
                 const centerY = bestY + height / 2;
-                const snapThreshold = 30; // Stronger magnet for hiss
+                const snapThreshold = 15.0; // Increased to 15m for easier grabbing
 
                 let minDistance = snapThreshold;
-                let snapPos = null;
+                let snapPos: { x: number, y: number } | null = null;
                 let snapAngle = null;
                 let matchedBuildingHeight = null;
 
                 objects.forEach((other) => {
                     // Snap to 'building' or 'bod' (sheds)
                     if ((other.type === 'building' || other.type.includes('bod')) && other.points && other.points.length >= 4) {
+                        
+                        // Calculate Centroid of the building (in world coords)
+                        let polyCx = 0;
+                        let polyCy = 0;
+                        const numPoints = other.points.length / 2;
+                        for(let k=0; k < other.points.length; k+=2) {
+                             polyCx += other.points[k];
+                             polyCy += other.points[k+1];
+                        }
+                        polyCx = other.x + (polyCx / numPoints);
+                        polyCy = other.y + (polyCy / numPoints);
+
                         // Iterate building segments
                         for (let i = 0; i < other.points.length - 2; i += 2) {
                             const p1x = other.x + other.points[i];
@@ -197,62 +209,52 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, objects, isSelec
                             const dy = p2y - p1y;
                             const lenSq = dx * dx + dy * dy;
                             let t = ((centerX - p1x) * dx + (centerY - p1y) * dy) / lenSq;
+                            
+                            // Clamp t to segment (0..1)
                             t = Math.max(0, Math.min(1, t));
 
                             const projX = p1x + t * dx;
                             const projY = p1y + t * dy;
+                            
+                            // Distance from mouse center to the point on the line
                             const dist = Math.sqrt((centerX - projX) ** 2 + (centerY - projY) ** 2);
 
                             if (dist < minDistance) {
                                 minDistance = dist;
 
-                                // Calculate Wall Angle
-                                const angleRad = Math.atan2(dy, dx);
-                                let wallAngle = (angleRad * 180 / Math.PI);
-
-                                // Orient Hiss: Back should be against wall.
-                                // Rotate 90 degrees relative to wall?
-                                // Usually Hiss "front" is along X axis? need to check orientation.
-                                // Let's try aligning rotation = wallAngle first, then offset 90 if needed.
-                                // Assuming His "Back" is -Z or -Y local. 
-                                // Let's set it Perpendicular (+90 deg) to wall
-                                snapAngle = wallAngle + 90;
-
-                                // Offset position: Place CENTER exactly height/2 away from wall along normal
-                                // Normal vector: (-dy, dx) or (dy, -dx)
-                                // Normalized normal
+                                // Normal vector (raw)
                                 const len = Math.sqrt(lenSq);
-                                const nx = -dy / len;
-                                const ny = dx / len;
+                                let nx = -dy / len;
+                                let ny = dx / len;
 
-                                // Determine which side of wall we are on?
-                                // Vector from wall to mouse
-                                const v2kx = centerX - projX;
-                                const v2ky = centerY - projY;
-                                const dot = v2kx * nx + v2ky * ny;
+                                // Segment Center (World)
+                                const segMidX = p1x + dx * 0.5;
+                                const segMidY = p1y + dy * 0.5;
 
-                                // Push out along the normal on the side the mouse is
-                                const pushDir = dot > 0 ? 1 : -1;
+                                // Vector from Centroid to Segment (Outward direction approximation)
+                                const vecOutX = segMidX - polyCx;
+                                const vecOutY = segMidY - polyCy;
 
-                                // Offset = half dimension of Hiss (conceptually 'height' in 2D is often depth)
+                                // Ensure Normal points OUTWARD relative to polygon centroid
+                                if (nx * vecOutX + ny * vecOutY < 0) {
+                                    nx = -nx;
+                                    ny = -ny;
+                                }
+
+                                // Offset = half dimension of Hiss
                                 const offsetDist = height / 2;
 
+                                // ALWAYS snap to OUTSIDE: strict projection + outward normal * offset
                                 snapPos = {
-                                    x: projX + (nx * pushDir * offsetDist) - width / 2,
-                                    y: projY + (ny * pushDir * offsetDist) - height / 2
+                                    x: projX + (nx * offsetDist) - width / 2,
+                                    y: projY + (ny * offsetDist) - height / 2
                                 };
+                                
+                                // Face OUTWARD (Away from wall)
+                                const normalAngle = Math.atan2(ny, nx) * 180 / Math.PI;
+                                snapAngle = normalAngle - 90; 
 
-                                // Rotate to face OUT from wall (or IN?)
-                                // If dot > 0 (outside), we want Back to wall.
-                                // Face = Angle of Normal?
-                                const normalAngle = Math.atan2(ny * pushDir, nx * pushDir) * 180 / Math.PI;
-                                // Hiss model usually looks "Forward" -> set rotation to Normal Angle
-                                // Adjust by -90 if model forward is X?
-                                // Let's assume model Forward is -Z (standard ThreeJS).
-                                // 2D rotation maps -Z to Up?
-                                snapAngle = normalAngle + 90; // Trial and error adjustment for strict "Slaviskt" following of visual
-
-                                matchedBuildingHeight = other.height3d; // Grab building height
+                                matchedBuildingHeight = other.height3d;
                             }
                         }
                     }
@@ -272,8 +274,8 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, objects, isSelec
             } else {
                 // Improved Snapping Logic: Edge Snapping + Stacking
                 let closestDist = Infinity;
-                let snapX = null;
-                let snapY = null;
+                let snapX: number | null = null;
+                let snapY: number | null = null;
 
                 objects.forEach((other) => {
                     if (other.id === obj.id) return;
@@ -281,6 +283,9 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, objects, isSelec
                     // DISABLE Edge Snapping for Line/Fence/Pen objects being dragged
                     // Their bounding box is complex and usually user doesn't want to snap the whole fence to a shed side.
                     if (isLineTool(obj.type)) return;
+
+                    // DISABLE Snapping for "Fristående" Items (Rebar, Saw)
+                    if (obj.type === 'rebar-station' || obj.type === 'saw-shed') return;
 
                     const isBase = other.type === 'building' || other.type.includes('bod') || other.type.includes('container') || other.type === 'kontor' || other.type === 'shed' || other.type === 'office';
                     if (!isBase) return;
@@ -295,7 +300,7 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, objects, isSelec
 
                     // 1. Stack Snap (Inner Magnet) - "Fastna ovanpå"
                     // Only if we are fairly close to center (e.g. 25% overlap depth)
-                    const stackTolerance = 25; // Pixels distance from center
+                    const stackTolerance = 10.0; // Restored to 10m for sticky stacking
                     const distToCenter = Math.sqrt((myCX - otherCX) ** 2 + (myCY - otherCY) ** 2);
 
                     if (distToCenter < stackTolerance) {
@@ -310,7 +315,7 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, objects, isSelec
 
                     // 2. Edge Snap (Outer Magnet) - "Sugas fast vid sidan"
                     // If not stacking, check edges.
-                    const edgeTolerance = 15;
+                    const edgeTolerance = 5.0; // Restored to 5m for sticky edges
 
                     const myLeft = bestX;
                     const myRight = bestX + width;
@@ -591,37 +596,77 @@ const DraggableObject: React.FC<DraggableObjectProps> = ({ obj, objects, isSelec
                 {/* Visual Segments (Fences with Gaps) */}
                 {visualSegments ? (
                     visualSegments.map((seg, idx) => (
-                        <Line
-                            key={idx}
-                            points={[seg.p1.x, seg.p1.y, seg.p2.x, seg.p2.y]}
-                            stroke={obj.stroke || '#000000'}
-                            strokeWidth={obj.strokeWidth || 2}
-                            dash={obj.dash}
-                            tension={0} // Fences are straight
-                            lineCap="round"
-                            lineJoin="round"
-                            fill={obj.fill}
-                            opacity={1}
-                            perfectDrawEnabled={false}
-                            hitStrokeWidth={20}
-                        />
+                        <React.Fragment key={idx}>
+                             {/* Backing Line for Contrast */}
+                            <Line
+                                points={[seg.p1.x, seg.p1.y, seg.p2.x, seg.p2.y]}
+                                stroke="#ffffff"
+                                strokeWidth={(obj.strokeWidth || 2) * 1.5}
+                                dash={obj.dash} // Same dash to match gaps? Or solid to fill gaps? 
+                                // Ideally solid backing fills the dash gaps, making it look like a solid white line with green dashes on top?
+                                // User wanted "poppar ut". 
+                                // If we use solid backing, the gaps become white.
+                                // If we use same dash, the gaps are transparent.
+                                // Let's try Solid Backing first as it maximizes visibility on dark maps.
+                                // Actually, if it's solid backing, it looks like a white tube with green stripes. 
+                                // Let's stick to matching dash for now, but slightly wider.
+                                // Wait, if I use solid backing, the "gaps" in the fence will show white. That's good for visibility.
+                                tension={0}
+                                lineCap="round"
+                                lineJoin="round"
+                                opacity={0.7}
+                                perfectDrawEnabled={false}
+                                listening={false} 
+                            />
+                            <Line
+                                points={[seg.p1.x, seg.p1.y, seg.p2.x, seg.p2.y]}
+                                stroke={obj.stroke || '#000000'}
+                                strokeWidth={obj.strokeWidth || 2}
+                                dash={obj.dash}
+                                tension={0} // Fences are straight
+                                lineCap="round"
+                                lineJoin="round"
+                                fill={obj.fill}
+                                opacity={1}
+                                perfectDrawEnabled={false}
+                                hitStrokeWidth={20}
+                            />
+                        </React.Fragment>
                     ))
                 ) : (
                     // Default Continuous Line (Paths, Pens, or no-gap Fences)
-                    <Line
-                        points={obj.points}
-                        stroke={obj.stroke || '#000000'}
-                        strokeWidth={obj.strokeWidth || 2}
-                        dash={obj.dash}
-                        tension={isPen(obj) ? 0.5 : 0}
-                        lineCap="round"
-                        lineJoin="round"
-                        fill={obj.fill}
-                        closed={obj.type === 'polygon' || obj.type === 'building' || obj.type === 'zone'}
-                        opacity={obj.type === 'building' ? 0.8 : 1}
-                        perfectDrawEnabled={false}
-                        hitStrokeWidth={20}
-                    />
+                    <React.Fragment>
+                        {/* Backing Line for Contrast (Walkway & Traffic) */}
+                        {(obj.type === 'walkway' || obj.type === 'construction-traffic') && (
+                            <Line
+                                points={obj.points}
+                                stroke="#ffffff"
+                                strokeWidth={(obj.strokeWidth || 2) * 1.5}
+                                dash={obj.dash}
+                                tension={isPen(obj) ? 0.5 : 0}
+                                lineCap="round"
+                                lineJoin="round"
+                                closed={false} // Walkways/Traffic are never closed polygons in this context
+                                opacity={0.7}
+                                perfectDrawEnabled={false}
+                                listening={false}
+                            />
+                        )}
+                        <Line
+                            points={obj.points}
+                            stroke={obj.stroke || '#000000'}
+                            strokeWidth={obj.strokeWidth || 2}
+                            dash={obj.dash}
+                            tension={isPen(obj) ? 0.5 : 0}
+                            lineCap="round"
+                            lineJoin="round"
+                            fill={obj.fill}
+                            closed={obj.type === 'building'} // Only building is closed in isLineTool set
+                            opacity={obj.type === 'building' ? 0.8 : 1}
+                            perfectDrawEnabled={false}
+                            hitStrokeWidth={20}
+                        />
+                    </React.Fragment>
                 )}
             </Group>
         );

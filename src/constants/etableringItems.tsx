@@ -31,7 +31,7 @@ const KontorIcon = () => <SvgIcon svg={KontorIconSVG} />;
 const HissIcon = () => <img src={hissImageUrl} alt="Hiss" style={{ width: '100%', height: '100%' }} />;
 
 const SHED_SIZE = { width: 8.4, height: 2.9 }; // Standard Swedish Shed Size
-const WC_SIZE = { width: 1.0, height: 1.0 }; // Standard symbol size
+const WC_SIZE = { width: 2.4, height: 2.4 }; // Standard symbol size
 const UNIFORM_SIZE = { width: 1.0, height: 1.0 }; // General default
 const KONTOR_SIZE = { width: 8.4, height: 2.9 }; // Match shed ratio
 
@@ -40,8 +40,8 @@ export const etableringCategory: { name: string; items: LibraryItem[] } = {
   name: "Etablering",
   items: [
     { type: 'bygg-bod', name: 'Bygg bod', icon: <BodIcon />, iconUrl: createIcon(BodSVG), initialProps: SHED_SIZE },
-    { type: 'wc', name: 'WC', icon: <WCIcon />, iconUrl: createIcon(WCSVG), initialProps: WC_SIZE },
+    { type: 'wc', name: 'WC', icon: <WCIcon />, iconUrl: createIcon(WCSVG), initialProps: { width: 3.0, height: 3.0 } },
     { type: 'kontor', name: 'Kontor', icon: <KontorIcon />, iconUrl: createIcon(KontorSVG), initialProps: KONTOR_SIZE },
-    { type: 'hiss', name: 'Hiss', icon: <HissIcon />, iconUrl: hissImageUrl, initialProps: { width: 1.0, height: 1.0 } },
+    { type: 'hiss', name: 'Hiss', icon: <HissIcon />, iconUrl: hissImageUrl, initialProps: { width: 3.0, height: 3.0 } },
   ]
 };

@@ -6,7 +6,7 @@ import PpeImage from '@/assets/ikoner/ppe.png';
 import AtersamlingsplatsImage from '@/assets/ikoner/atersamlingsplats.png';
 import BrandslackareImage from '@/assets/ikoner/brandslackare.png';
 
-const SHARED_SIZE = { width: 1.0, height: 1.0 };
+const SHARED_SIZE = { width: 3.0, height: 3.0 };
 
 // --- SVG Definitions ---
 const ForstaHjalpenSVG = `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><rect width="60" height="60" x="2" y="2" fill="#00C853" stroke="#fff" stroke-width="2" rx="4"/><path d="M32 12 V52 M12 32 H52" stroke="#FFFFFF" stroke-width="12" stroke-linecap="square"/></svg>`;

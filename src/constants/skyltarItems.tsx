@@ -3,7 +3,7 @@ import React from 'react';
 import { LibraryItem } from '../types';
 import { createIcon, SvgIcon } from './itemHelpers';
 
-const SHARED_SIZE = { width: 1.0, height: 1.0 };
+const SHARED_SIZE = { width: 3.0, height: 3.0 };
 
 // --- SVG Definitions ---
 const UtrymningspilSVG = `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><rect width="60" height="60" x="2" y="2" fill="#00C853" rx="2" stroke="#fff" stroke-width="2"/><path d="M10 32 H50 M35 18 L50 32 L35 46" stroke="#fff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`;

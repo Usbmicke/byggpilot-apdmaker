@@ -16,161 +16,101 @@ body {
   }
 }
 
-@keyframes shimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-
-  100% {
-    transform: translateX(100%);
-  }
+/* Global Theme Reset */
+body {
+  background-color: #0B0F15;
+  color: #F8FAFC;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
-.shimmer-button::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(90deg,
-      rgba(255, 255, 255, 0) 0%,
-      rgba(255, 255, 255, 0.2) 50%,
-      rgba(255, 255, 255, 0) 100%);
-  transform: translateX(-100%);
-  animation: shimmer 3s infinite;
+/* GLASSMORPHISM UTILITIES */
+.glass-panel {
+  background: rgba(21, 25, 34, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
 }
 
-/* PREMIUM BUTTON STYLE (Clean & Modern) */
-.button {
-  --bg: #1e293b;
-  /* Slate 800 default */
-  --text: #e2e8f0;
-  outline: none;
-  cursor: pointer;
-  border: 0;
+.glass-card {
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.4), rgba(15, 23, 42, 0.4));
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+}
+
+/* PREMIUM BUTTONS (Pill Shape, Gradient) */
+.btn-luxury {
   position: relative;
-  border-radius: 999px;
-  /* Pill shape */
-  background-color: var(--bg);
-  transition: all 0.2s ease;
-  box-shadow:
-    0 2px 4px rgba(0, 0, 0, 0.2),
-    inset 0 1px 1px rgba(255, 255, 255, 0.1);
-  margin: 0 4px;
-  padding: 0;
-  height: 40px;
-  /* Fixed height for header */
   display: inline-flex;
   align-items: center;
   justify-content: center;
-}
-
-.button.blue {
-  --bg: #334155;
-}
-
-/* Mapped to Slate 700 for luxury theme */
-.button.red {
-  --bg: #dc2626;
-}
-
-/* Red 600 */
-.button.purple {
-  --bg: #9333ea;
-}
-
-/* Purple 600 */
-.button.slate {
-  --bg: #334155;
-}
-
-/* Remapped to Zinc-like manually if needed, or keep for compatibility */
-.button.zinc {
-  --bg: #3f3f46;
-}
-
-/* Zinc 700 */
-.button.green {
-  --bg: #16a34a;
-}
-
-/* Green 600 */
-
-
-.button .wrap {
-  font-size: 13px;
-  font-weight: 600;
+  padding: 0 24px;
+  height: 44px;
+  background: linear-gradient(135deg, #52525b, #a1a1aa);
   color: white;
-  padding: 0 20px;
-  border-radius: inherit;
-  position: relative;
+  font-weight: 600;
+  border-radius: 9999px; /* Pill */
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 15px rgba(255, 255, 255, 0.1);
   overflow: hidden;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  font-size: 14px;
+  letter-spacing: 0.5px;
 }
 
-.button .wrap p {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  z-index: 10;
-}
-
-/* Hover effects */
-.button:hover {
-  transform: translateY(-1px);
-  box-shadow:
-    0 4px 6px rgba(0, 0, 0, 0.3),
-    inset 0 1px 1px rgba(255, 255, 255, 0.2);
+.btn-luxury:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(124, 58, 237, 0.5);
   filter: brightness(1.1);
 }
 
-.button:active {
+.btn-luxury:active {
   transform: translateY(1px);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
-  filter: brightness(0.95);
 }
 
-/* Glossy overlay */
-.button .wrap::before {
-  content: "";
+.btn-luxury::after {
+  content: '';
   position: absolute;
   top: 0;
-  left: 0;
-  right: 0;
-  height: 50%;
-  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.1), transparent);
-  border-radius: 999px 999px 0 0;
-  pointer-events: none;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: 0.5s;
 }
 
-.button .wrap span:nth-child(2) {
-  display: none;
+.btn-luxury:hover::after {
+  left: 100%;
 }
 
-.button:hover .wrap span:nth-child(1) {
-  display: none;
+/* Secondary Button (Ghost/Glass) */
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 20px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94A3B8;
+  font-weight: 500;
+  border-radius: 9999px;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(4px);
 }
 
-.button:hover .wrap span:nth-child(2) {
-  display: block;
-  animation: fadeIn 0.2s ease;
+.btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border-color: rgba(255, 255, 255, 0.2);
 }
+
+/* REMOVED LEGACY BUTTON STYLES (green/red/slate blocks) */
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(2px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 

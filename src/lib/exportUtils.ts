@@ -150,19 +150,85 @@ export const exportPlan = async (format: 'jpeg' | 'pdf', config: ExportConfig): 
     container.style.left = '-9999px';
 
     try {
+        // --- PREPARE LEGEND & INFO ---
+        document.body.appendChild(container);
+        container.innerHTML = await renderLegendToHtml(allLegendItems);
+        
+        let legendCanvas: HTMLCanvasElement | null = null;
+        try {
+            legendCanvas = await getCanvasFromHtml(container);
+        } catch (e) {
+            console.warn("Kunde inte generera teckenförklaring:", e);
+            // Proceed without legend if it fails
+        }
+
         if (format === 'jpeg') {
-            const link = document.createElement('a');
-            link.download = `${projectInfo.projectName?.replace(/ /g, '_') || 'apd-plan'}.jpeg`;
-            link.href = image.url;
-            link.click();
-            return { status: 'success', message: 'Exporten är klar.' };
+            // --- JPEG COMPOSITING (Drawing + Legend) ---
+            const margin = 20;
+            const infoWidth = 350; // Width for side panel (Info + Legend)
+            const totalWidth = image.width + infoWidth + (margin * 3);
+            const totalHeight = Math.max(image.height, 800) + (margin * 2);
+
+            const canvas = document.createElement('canvas');
+            canvas.width = totalWidth;
+            canvas.height = totalHeight;
+            const ctx = canvas.getContext('2d');
+
+            if (ctx) {
+                // 1. Background
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, totalWidth, totalHeight);
+
+                // 2. Main Drawing
+                const drawingImg = new Image();
+                drawingImg.src = image.url;
+                await new Promise((resolve) => { drawingImg.onload = resolve; });
+                ctx.drawImage(drawingImg, margin, margin);
+
+                // 3. Side Panel (Project Info Text)
+                const infoX = image.width + (margin * 2);
+                let currentY = margin + 40;
+
+                ctx.fillStyle = '#1e293b'; // Slate 800
+                ctx.font = 'bold 24px Arial, sans-serif';
+                ctx.fillText('APD-PLAN', infoX, currentY);
+                
+                currentY += 40;
+                ctx.font = '14px Arial, sans-serif';
+                ctx.fillStyle = '#475569'; // Slate 600
+                const lineHeight = 20;
+
+                const drawInfoLine = (label: string, value: string | undefined) => {
+                    ctx.fillText(`${label}: ${value || '-'}`, infoX, currentY);
+                    currentY += lineHeight;
+                };
+
+                drawInfoLine('Företag', projectInfo.company);
+                drawInfoLine('Projekt', projectInfo.projectName);
+                drawInfoLine('Projekt ID', projectInfo.projectId);
+                drawInfoLine('Datum', projectInfo.date);
+                drawInfoLine('Rev', projectInfo.revision);
+
+                // 4. Legend Image
+                if (legendCanvas) {
+                    currentY += 40;
+                    ctx.font = 'bold 16px Arial, sans-serif';
+                    ctx.fillStyle = '#64748b';
+                    ctx.fillText('TECKENFÖRKLARING', infoX, currentY);
+                    currentY += 20;
+                    ctx.drawImage(legendCanvas, infoX, currentY);
+                }
+
+                // Download Composite
+                const link = document.createElement('a');
+                link.download = `${projectInfo.projectName?.replace(/ /g, '_') || 'apd-plan'}.jpeg`;
+                link.href = canvas.toDataURL('image/jpeg', 0.9);
+                link.click();
+                return { status: 'success', message: 'Exporten är klar.' };
+            }
         }
 
         // --- PDF Generation ---
-        document.body.appendChild(container);
-        container.innerHTML = await renderLegendToHtml(allLegendItems);
-        const legendCanvas = await getCanvasFromHtml(container);
-
         const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a3' });
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = pdf.internal.pageSize.getHeight();
@@ -186,12 +252,12 @@ export const exportPlan = async (format: 'jpeg' | 'pdf', config: ExportConfig): 
         pdf.text(`Datum: ${projectInfo.date || '-'}`, infoX + 70, infoY);
         pdf.text(`Revision: ${projectInfo.revision || '-'}`, infoX + 70, infoY + lineHeight);
 
-        const legendWidth = 55;
+        const legendWidth = 65; // Slightly wider for safety
         const spaceBetween = 5;
         const drawingAreaWidth = pdfWidth - legendWidth - (pageMargin * 2) - spaceBetween;
         const drawingAreaHeight = pdfHeight - (pageMargin * 2) - 20;
 
-        // REFAKTORERING: Använd `image`-objektet för skalning
+        // Use Aspect Ratio scaling to fit image
         const scale = Math.min(drawingAreaWidth / image.width, drawingAreaHeight / image.height);
         const finalDrawingWidth = image.width * scale;
         const finalDrawingHeight = image.height * scale;
@@ -201,10 +267,13 @@ export const exportPlan = async (format: 'jpeg' | 'pdf', config: ExportConfig): 
 
         pdf.addImage(image.url, 'PNG', drawingX, drawingY, finalDrawingWidth, finalDrawingHeight, undefined, 'FAST');
 
-        const legendX = pdfWidth - pageMargin - legendWidth;
-        const legendCanvasUrl = legendCanvas.toDataURL('image/png', 1.0);
-        const legendHeight = (legendCanvas.height * legendWidth) / legendCanvas.width;
-        pdf.addImage(legendCanvasUrl, 'PNG', legendX, pageMargin + 20, legendWidth, legendHeight);
+        if (legendCanvas) {
+            const legendX = pdfWidth - pageMargin - legendWidth;
+            const legendCanvasUrl = legendCanvas.toDataURL('image/png', 1.0);
+            // Calculate height maintaining aspect ratio
+            const legendHeight = (legendCanvas.height * legendWidth) / legendCanvas.width;
+            pdf.addImage(legendCanvasUrl, 'PNG', legendX, pageMargin + 20, legendWidth, legendHeight);
+        }
 
         pdf.save(`${projectInfo.projectName?.replace(/ /g, '_') || 'apd-plan'}.pdf`);
 

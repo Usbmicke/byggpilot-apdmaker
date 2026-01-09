@@ -20,10 +20,7 @@ import { exportPlan } from './lib/exportUtils';
 import { CustomDragLayer } from './components/CustomDragLayer';
 
 // Configure PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-    'pdfjs-dist/build/pdf.worker.min.js',
-    import.meta.url,
-).toString();
+pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 const App: React.FC = () => {
     const stageRef = useRef<any>(null);
@@ -47,16 +44,16 @@ const App: React.FC = () => {
     const [background, setBackground] = useState<{ url: string; width: number; height: number; } | null>(() => {
         try {
             const saved = localStorage.getItem('apd-background');
-            if (!saved) return { url: '', width: 2000, height: 1500 }; // QA BYPASS
+            if (!saved) return null;
             const parsed = JSON.parse(saved);
             // Blob URLs are not persistent across reloads. discard them.
-            if (parsed && parsed.url && (parsed.url.startsWith('blob:') || parsed.url.startsWith('data:'))) {
+            if (parsed && (!parsed.url || parsed.url.startsWith('blob:') || parsed.url.startsWith('data:'))) {
                 return null;
             }
             return parsed;
         } catch (e) {
             console.error('Failed to load background', e);
-            return { url: '', width: 2000, height: 1500 }; // QA BYPASS
+            return null;
         }
     });
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -104,6 +101,13 @@ const App: React.FC = () => {
             }
         };
     }, [background?.url]);
+
+    // Self-healing: Ensure empty background objects are treated as null
+    useEffect(() => {
+        if (background && !background.url) {
+            setBackground(null);
+        }
+    }, [background]);
 
     // Force 2D view if background is removed (fix for user getting stuck in 3D after clearing project)
     useEffect(() => {
@@ -378,7 +382,7 @@ const App: React.FC = () => {
     };
 
     const clearProject = () => {
-        setBackground({ url: '', width: 2000, height: 1500 }); // QA BYPASS: Keep default background
+        setBackground(null);
 
         resetHistory([]);
         setProjectInfo(defaultProjectInfo);
@@ -432,8 +436,8 @@ const App: React.FC = () => {
     return (
         <DndProvider backend={HTML5Backend}>
             <CustomDragLayer scale={scale} />
-            <div className="flex flex-col h-screen bg-zinc-950 text-white font-sans overflow-hidden">
-                <Toaster position="bottom-center" toastOptions={{ className: 'bg-zinc-800 text-white border border-white/10', duration: 4000 }} />
+            <div className="flex flex-col h-screen bg-dark-bg text-text-main font-sans overflow-hidden">
+                <Toaster position="bottom-center" toastOptions={{ className: 'glass-panel text-white border border-white/10 shadow-neon', duration: 4000 }} />
                 <Header
                     handleFile={handleFile}
                     clearProject={clearProject}
@@ -446,9 +450,10 @@ const App: React.FC = () => {
                     onCalibrate={handleCalibrationStart}
                     backgroundIsLoaded={!!background}
                 />
-                <div className="flex flex-1 overflow-hidden">
+                <div className="flex flex-1 overflow-hidden relative">
+                    {/* Background Pattern or Glow could go here */}
                     <Library isOpen={isLibraryOpen} selectedTool={selectedTool} onSelectTool={setSelectedTool} />
-                    <div className="flex-1 flex flex-col relative">
+                    <div className="flex-1 flex flex-col relative z-10">
                         {show3D ? <ThreeDView ref={threeDViewRef} objects={objects} background={background} libraryCategories={LIBRARY_CATEGORIES} selectedId={selectedIds.length > 0 ? selectedIds[0] : null} onSelect={(id) => setSelectedIds(id ? [id] : [])} onObjectChange={(id, attrs) => updateObject(id, attrs, false)} onAddObject={addObject} onSnapshotRequest={() => setObjects(objects, true)} isLocked={isLocked} setIsLocked={setIsLocked} scale={scale} />
                             : <CanvasPanel ref={canvasPanelRef} stageRef={stageRef} objects={objects} background={background} selectedIds={selectedIds} setSelectedIds={setSelectedIds} checkDeselect={checkDeselect} addObject={addObject} updateObject={updateObject} removeObjects={removeObjects} handleFile={handleFile} undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo} selectedTool={selectedTool} setSelectedTool={setSelectedTool} isCalibrating={isCalibrating} onCalibrationFinished={handleCalibrationLineDrawn} scale={scale} />}
                     </div>
@@ -459,41 +464,44 @@ const App: React.FC = () => {
                     <div className="space-y-4">
                         {!calibrationPixels ? (
                             <>
-                                <p className="text-zinc-400">För att skalan ska bli korrekt måste vi veta hur många pixlar en meter motsvarar på din ritning.</p>
-                                <div className="bg-zinc-800/50 p-4 rounded-lg border border-zinc-700">
+                                <p className="text-text-muted">För att skalan ska bli korrekt måste vi veta hur många pixlar en meter motsvarar på din ritning.</p>
+                                <div className="glass-card p-4 rounded-xl border border-white/5">
                                     <h3 className="text-white font-bold mb-2">Alternativ 1: Mät i ritningen (Rekommenderas)</h3>
-                                    <p className="text-sm text-zinc-400 mb-4">Klicka på knappen nedan och markera sedan två punkter i ritningen som du vet avståndet mellan (t.ex. en måttsatt vägg eller en skalstock).</p>
-                                    <button onClick={startDrawingCalibration} className="w-full py-2 bg-zinc-700 hover:bg-zinc-600 text-white rounded font-bold transition-colors">Starta Mätning</button>
+                                    <p className="text-sm text-text-muted mb-4">Klicka på knappen nedan och markera sedan två punkter i ritningen som du vet avståndet mellan (t.ex. en måttsatt vägg eller en skalstock).</p>
+                                    <button onClick={startDrawingCalibration} className="w-full btn-luxury">Starta Mätning</button>
                                 </div>
-                                <div className="bg-zinc-800/50 p-4 rounded-lg border border-zinc-700">
+                                <div className="glass-card p-4 rounded-xl border border-white/5">
                                     <h3 className="text-white font-bold mb-2">Alternativ 2: Manuell inmatning</h3>
-                                    <p className="text-sm text-zinc-400 mb-4">Om du redan vet skalfaktorn (meter per pixel) kan du ange den här.</p>
+                                    <p className="text-sm text-text-muted mb-4">Om du redan vet skalfaktorn (meter per pixel) kan du ange den här.</p>
                                     <input
                                         type="number"
                                         placeholder="Ex: 0.05"
-                                        className="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-white mb-2"
+                                        className="w-full bg-dark-bg border border-white/10 rounded-lg p-3 text-white mb-3 focus:border-brand-start focus:ring-1 focus:ring-brand-start outline-none transition-all"
                                         value={calibrationLength}
                                         onChange={(e) => setCalibrationLength(e.target.value)}
                                     />
-                                    <button onClick={applyCalibration} className="w-full py-2 bg-zinc-700 hover:bg-zinc-600 text-white rounded font-bold transition-colors">Spara Skala</button>
+                                    <button onClick={applyCalibration} className="w-full btn-ghost hover:bg-white/10 border-white/10">Spara Skala</button>
                                 </div>
                             </>
                         ) : (
                             <>
-                                <p className="text-zinc-300">Du har mätt en sträcka på <span className="text-white font-mono font-bold">{calibrationPixels.toFixed(1)} px</span>.</p>
-                                <div className="bg-zinc-800/50 p-4 rounded-lg border border-zinc-700">
+                                <p className="text-text-muted">Du har mätt en sträcka på <span className="text-brand-end font-mono font-bold text-lg">{calibrationPixels.toFixed(1)} px</span>.</p>
+                                <div className="glass-card p-4 rounded-xl border border-white/5">
                                     <label className="block text-sm font-bold text-white mb-2">Hur lång är denna sträcka i verkligheten (meter)?</label>
+                                    {/* Bug fix: The original code showed ProjectName input instead of Length input here? */}
+                                    {/* Correcting to Manual Input for Length in the 'measured' phase */}
                                     <input
-                                        type="text"
-                                        value={projectInfo.projectName}
-                                        onChange={(e) => setProjectInfo({ ...projectInfo, projectName: e.target.value })}
-                                        className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-zinc-500 focus:outline-none"
-                                        placeholder="T.ex. Kvarteret Eken"
+                                        type="number"
+                                        value={calibrationLength}
+                                        onChange={(e) => setCalibrationLength(e.target.value)}
+                                        className="w-full bg-dark-bg border border-white/10 rounded-lg p-3 text-white focus:border-brand-start focus:ring-1 focus:ring-brand-start outline-none transition-all text-lg font-mono"
+                                        placeholder="T.ex. 10.0"
+                                        autoFocus
                                     />
                                 </div>
                                 <div className="flex justify-end gap-3 pt-2">
-                                    <button onClick={() => setIsCalibrationModalOpen(false)} className="px-4 py-2 text-zinc-400 hover:text-white">Avbryt</button>
-                                    <button onClick={applyCalibration} className="px-6 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded font-bold transition-colors shadow-lg shadow-emerald-900/20">Kalibrera</button>
+                                    <button onClick={() => setIsCalibrationModalOpen(false)} className="px-4 py-2 text-text-muted hover:text-white transition-colors">Avbryt</button>
+                                    <button onClick={applyCalibration} className="btn-luxury px-8">Kalibrera</button>
                                 </div>
                             </>
                         )}

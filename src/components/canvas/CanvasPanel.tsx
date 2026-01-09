@@ -203,6 +203,10 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>((
         if (!node) return;
         const scaleX = node.scaleX();
         const scaleY = node.scaleY();
+        const rotation = node.rotation();
+
+        // Check if we need to reset scale
+        // For groups, we usually want to reset scale to 1 and burn it into geometry/points
         node.scaleX(1);
         node.scaleY(1);
 
@@ -215,16 +219,38 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>((
         const attrs: Partial<APDObject> = {
             x: node.x(),
             y: node.y(),
-            rotation: node.rotation(),
+            rotation: rotation,
         };
 
-        if (isCrane(obj)) {
+        if (isLineTool(obj.type) || obj.type === 'fence' || obj.type === 'staket') {
+             // FOR LINES/FENCES: Apply scale to POINTS
+             if (obj.points) {
+                 // Calculate local scale factor relative to the center or origin?
+                 // The Transformer scales around the Transform anchor.
+                 // But simply multiplying points by scaleX/scaleY works if local origin is (0,0).
+                 // However, node center might have moved.
+                 // attrs.x/y captures the new position.
+                 
+                 // If the user scaled uniformly, scaleX and scaleY are set.
+                 
+                 // We need to map the points.
+                 // Problem: 'points' are relative to (obj.x, obj.y).
+                 // If we strictly multiply points, we assume pivot is at 0,0 locally.
+                 // Transformer usually keeps the "top-left" (or position) constant relative to parent? No.
+                 // Let's assume naive scaling of points works for now.
+                 const newPoints = obj.points.map((val, idx) => {
+                    return idx % 2 === 0 ? val * scaleX : val * scaleY;
+                 });
+                 attrs.points = newPoints;
+             }
+        } else if (isCrane(obj)) {
             const currentRadius = obj.radius || 100;
             const newRadius = Math.max(20, currentRadius * scaleX);
             attrs.radius = newRadius;
         } else {
-            attrs.width = Math.max(5, node.width() * scaleX);
-            attrs.height = Math.max(5, node.height() * scaleY);
+            // Standard Objects (with width/height)
+            attrs.width = Math.max(5, (obj.width || 0) * scaleX);
+            attrs.height = Math.max(5, (obj.height || 0) * scaleY);
         }
 
         updateObject(node.id(), attrs, true);
@@ -307,26 +333,28 @@ const CanvasPanel = forwardRef<CanvasPanelRef, CanvasPanelProps>((
                         {isDrawing && currentRect && <Rect x={currentRect.x} y={currentRect.y} width={currentRect.width} height={currentRect.height} fill={selectedTool?.initialProps?.fill || "rgba(255, 255, 255, 0.1)"} stroke={selectedTool?.initialProps?.stroke || "white"} strokeWidth={1} listening={false} />}
                         {isDrawing && currentPoints.length > 0 && (
                             <>
-                                <Line points={currentPoints} stroke={selectedTool?.initialProps?.stroke || (isCalibrating ? "#ff00ff" : "white")} strokeWidth={isCalibrating ? 3 : 2} dash={isCalibrating ? undefined : [5, 5]} listening={false} />
+                                <Line points={currentPoints} stroke={selectedTool?.initialProps?.stroke || (isCalibrating ? "#facc15" : "white")} strokeWidth={isCalibrating ? 3 : 2} dash={isCalibrating ? undefined : [5, 5]} listening={false} />
                                 {isSnappedToStart && (
                                     <React.Fragment>
                                         <Circle
                                             x={currentPoints[0]}
                                             y={currentPoints[1]}
-                                            radius={3}
-                                            fill="#4ade80"
+                                            radius={8}
+                                            fill="#06b6d4"
                                             stroke="#ffffff"
-                                            strokeWidth={1.5}
-                                            opacity={0.8}
+                                            strokeWidth={2}
+                                            opacity={0.9}
                                             listening={false}
+                                            shadowColor="#06b6d4"
+                                            shadowBlur={10}
                                         />
                                         <Circle
                                             x={currentPoints[0]}
                                             y={currentPoints[1]}
-                                            radius={6}
-                                            stroke="#4ade80"
-                                            strokeWidth={1}
-                                            opacity={0.5}
+                                            radius={16}
+                                            stroke="#06b6d4"
+                                            strokeWidth={2}
+                                            opacity={0.6}
                                             listening={false}
                                         />
                                     </React.Fragment>

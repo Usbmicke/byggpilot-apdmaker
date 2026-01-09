@@ -26,3 +26,4 @@ dist-ssr
 # Node binaries
 node.zip
 nodejs/
+node_bin/

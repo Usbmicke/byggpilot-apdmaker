@@ -36,7 +36,10 @@ const DraggableLibraryItem: React.FC<DraggableLibraryItemProps> = ({ item, onCli
         title = "Rita ut byggnader i 2D för att automatiskt se dem som volymer i 3D-vyn. Används som underlag för symboler.";
     }
 
-    const selectedClass = isSelected ? 'border-zinc-400 bg-zinc-700' : 'border-zinc-700';
+    // New Selected State: Gradient Border & Glow
+    const selectedClass = isSelected
+        ? 'ring-1 ring-brand-start bg-brand-start/10 shadow-neon'
+        : 'border-white/5 hover:bg-white/5 hover:border-white/10';
 
     return (
         <>
@@ -44,13 +47,13 @@ const DraggableLibraryItem: React.FC<DraggableLibraryItemProps> = ({ item, onCli
             <div
                 ref={drag}
                 onClick={handleClick}
-                className={`flex items-center p-3 bg-zinc-900 hover:bg-zinc-800 rounded-lg transition-colors border shadow-sm ${isDrawingTool ? 'cursor-pointer' : 'cursor-grab'} ${selectedClass}`}
+                className={`flex items-center p-3 rounded-xl transition-all duration-300 border backdrop-blur-sm group ${isDrawingTool ? 'cursor-pointer' : 'cursor-grab'} ${selectedClass}`}
                 title={title}
             >
-                <div className="w-8 h-8 mr-3 flex items-center justify-center text-zinc-400 bg-zinc-950 rounded-md flex-shrink-0 pointer-events-none select-none">
+                <div className={`w-10 h-10 mr-3 flex items-center justify-center rounded-lg flex-shrink-0 pointer-events-none select-none transition-colors ${isSelected ? 'bg-brand-gradient text-white shadow-lg' : 'bg-dark-bg text-text-muted group-hover:text-white group-hover:bg-card-bg'}`}>
                     {item.icon}
                 </div>
-                <span className="text-sm font-medium text-zinc-300 pointer-events-none select-none">{item.name}</span>
+                <span className={`text-sm font-medium pointer-events-none select-none transition-colors ${isSelected ? 'text-white' : 'text-text-muted group-hover:text-white'}`}>{item.name}</span>
             </div>
         </>
     );
@@ -67,16 +70,16 @@ const Category: React.FC<CategoryProps> = ({ name, items, onSelectTool, selected
     const [isOpen, setIsOpen] = useState(true);
 
     return (
-        <div className="mb-2">
+        <div className="mb-4">
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="w-full text-left font-semibold text-zinc-300 p-2 bg-zinc-900 hover:bg-zinc-800 rounded-md flex justify-between items-center transition-colors"
+                className="w-full text-left font-bold text-xs uppercase tracking-wider text-text-muted p-2 hover:text-white flex justify-between items-center transition-colors select-none"
             >
                 {name}
-                <svg className={`w-5 h-5 transition-transform ${isOpen ? '' : '-rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                <svg className={`w-4 h-4 transition-transform duration-300 ${isOpen ? '' : '-rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
             </button>
             {isOpen && (
-                <div className="pt-2 space-y-2">
+                <div className="pt-1 space-y-2 px-1">
                     {items.map(item => (
                         <DraggableLibraryItem
                             key={item.type}
@@ -106,32 +109,36 @@ const LibraryPanel: React.FC<LibraryPanelProps> = ({ isOpen, selectedTool, onSel
             onSelectTool(item);
             const isDrawingTool = isLineTool(item.type) || isRectTool(item.type);
             if (isDrawingTool) {
-                toast.success(`Ritverktyg '${item.name}' är aktivt. Tryck Esc för att avbryta.`, {
-                    id: 'tool-toast',
-                    duration: 5000
-                });
+                toast.success(`Ritverktyg '${item.name}' är aktivt.`, { id: 'tool-active' });
             }
         }
     };
 
-    // Remove the toast effect from here, it will be handled globally in App.tsx
-
     return (
         <aside
-            className={`w-72 sm:w-80 bg-[#18181b] text-zinc-300 p-4 overflow-y-auto flex-shrink-0 transition-transform duration-300 ease-in-out border-r border-zinc-800
-                        md:static md:h-auto md:w-64 lg:w-72 xl:w-80 md:translate-x-0 md:shadow-none
-                        ${isOpen ? 'translate-x-0' : '-translate-x-full md:w-0 md:p-0 md:border-r-0'}`}
+            className={`
+                fixed md:static inset-y-0 left-0 z-40
+                w-72 sm:w-80
+                glass-panel border-r border-white/5
+                p-4 overflow-y-auto overflow-x-hidden
+                transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1)
+                ${isOpen ? 'translate-x-0 opacity-100' : '-translate-x-full md:w-0 md:p-0 md:border-r-0 opacity-0'}
+            `}
         >
-            <h2 className="text-xl font-bold text-zinc-100 mb-4 whitespace-nowrap">Symbolbibliotek</h2>
-            {LIBRARY_CATEGORIES.map(category => (
-                <Category
-                    key={category.name}
-                    name={category.name}
-                    items={category.items}
-                    onSelectTool={handleSelectTool}
-                    selectedTool={selectedTool}
-                />
-            ))}
+            <div className={`transition-opacity duration-300 ${isOpen ? 'opacity-100 delay-200' : 'opacity-0'}`}>
+                <h2 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-brand-start to-brand-end mb-6 tracking-tight">Katalog</h2>
+                <div className="space-y-2 pb-20"> {/* Padding bottom for scroll */}
+                    {LIBRARY_CATEGORIES.map(category => (
+                        <Category
+                            key={category.name}
+                            name={category.name}
+                            items={category.items}
+                            onSelectTool={handleSelectTool}
+                            selectedTool={selectedTool}
+                        />
+                    ))}
+                </div>
+            </div>
         </aside>
     );
 };

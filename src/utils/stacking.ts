@@ -38,21 +38,39 @@ export const calculateStacking = (
         const objBottom = obj.y + objH;
 
         // Check AABB Intersection
-        const intersects = !(
-            newRight < objLeft ||
-            newLeft > objRight ||
-            newBottom < objTop ||
-            newTop > objBottom
-        );
+        const intersectLeft = Math.max(newLeft, objLeft);
+        const intersectRight = Math.min(newRight, objRight);
+        const intersectTop = Math.max(newTop, objTop);
+        const intersectBottom = Math.min(newBottom, objBottom);
 
-        if (intersects) {
-            // Calculate top of this object
-            const objBase = obj.elevation || 0;
-            const objHeight = getObjectHeight3D(obj);
-            const objTopZ = objBase + objHeight;
+        if (intersectLeft < intersectRight && intersectTop < intersectBottom) {
+            // Calculate overlap area
+            const overlapWidth = intersectRight - intersectLeft;
+            const overlapHeight = intersectBottom - intersectTop;
+            const overlapArea = overlapWidth * overlapHeight;
 
-            if (objTopZ > maxElevation) {
-                maxElevation = objTopZ;
+            // Calculate area of the object being placed (Drag Object)
+            const newArea = width * height;
+
+            // Threshold: Overlap must be substantial to justify "jumping" up.
+            // Default: 50% overlap required.
+            // For Buildings: Require 75% overlap to prevent objects placed "against the wall" from jumping to the roof.
+            let threshold = 0.50;
+            if (obj.type === 'building') {
+                threshold = 0.75;
+            }
+
+            const coverageRatio = overlapArea / newArea;
+
+            if (coverageRatio > threshold) {
+                 // Calculate top of this object
+                const objBase = obj.elevation || 0;
+                const objHeight = getObjectHeight3D(obj);
+                const objTopZ = objBase + objHeight;
+
+                if (objTopZ > maxElevation) {
+                    maxElevation = objTopZ;
+                }
             }
         }
     });

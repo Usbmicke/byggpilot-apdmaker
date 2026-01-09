@@ -270,27 +270,24 @@ const BackgroundPlane = React.memo(({ background, scale }: { background: { url: 
 
     return (
         <group>
-            {/* The Drawing Itself - Slightly Offset up to avoid z-fighting with Infinite Ground */}
-            <Plane args={[planeWidth, planeHeight]} position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-                <meshStandardMaterial map={texture} transparent={true} opacity={1} />
+            {/* The Drawing Itself - Raised to 0.2 */}
+            <Plane args={[planeWidth, planeHeight]} position={[0, 0.2, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+                <meshStandardMaterial map={texture} transparent={true} opacity={1} alphaTest={0.1} polygonOffset={true} polygonOffsetFactor={-1} />
             </Plane>
 
-            {/* Infinite Ground Plane (Dark Asphalt / Neutral) */}
-            <Grid
-                position={[0, -0.01, 0]}
-                args={[1000, 1000]}
-                cellSize={10}
-                cellThickness={0.5}
-                cellColor="#262626"
-                sectionSize={50}
-                sectionThickness={1}
-                sectionColor="#404040"
-                fadeDistance={400}
-                infiniteGrid={true}
-            />
-            <Plane args={[2000, 2000]} position={[0, -0.02, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-                <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
+            {/* Occlusion Plane - Solid backing behind the drawing frame */}
+            <Plane args={[planeWidth, planeHeight, 1, 1]} position={[0, 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                 <meshBasicMaterial color="#18181b" />
             </Plane>
+
+            {/* GROUND: Infinite Ground Plane (Dark Asphalt) - NO GRID to prevent z-fighting */}
+            {/* The Grid caused flickering through transparency. We remove it entirely when a drawing exists. */}
+            <Plane args={[2000, 2000]} position={[0, -0.05, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+                <meshStandardMaterial color="#09090b" roughness={0.9} />
+            </Plane>
+        </group>
+    );
+});
         </group>
     );
 });

@@ -171,7 +171,7 @@ export const useCanvasDrawing = ({
                     const startY = prev[1];
                     const dist = Math.sqrt(Math.pow(x - startX, 2) + Math.pow(y - startY, 2));
 
-                    if (dist < 5) { // Reduced to 5px snap threshold per user request ("magnetic" felt too strong)
+                    if (dist < 15) { // Increased to 15px for better "magnetic" feel
                         x = startX;
                         y = startY;
                         snapped = true;
